@@ -62,6 +62,19 @@ class GlobalConfig:
     # The environment will be driven by the highest frequency data.
     BASE_BAR_TIMEFRAME: str = "1S"
 
+    # --- FIX: Added missing data schema attributes ---
+    BINANCE_RAW_COLUMNS: List[str] = field(default_factory=lambda: [
+        'id', 'price', 'qty', 'quoteQty', 'time', 'is_buyer_maker'
+    ])
+    FINAL_COLUMNS: List[str] = field(default_factory=lambda: [
+        'trade_id', 'timestamp', 'price', 'size', 'side', 'asset'
+    ])
+    DTYPE_MAP: Dict[str, str] = field(default_factory=lambda: {
+        'id': 'int64', 'price': 'float64', 'qty': 'float64',
+        'quoteQty': 'float64', 'time': 'int64', 'is_buyer_maker': 'bool'
+    })
+    # --- END FIX ---
+
     # --- Sub-configurations ---
     strategy: HierarchicalTINConfig = field(default_factory=HierarchicalTINConfig)
     training: RLTrainingConfig = field(default_factory=RLTrainingConfig)
@@ -72,6 +85,14 @@ class GlobalConfig:
 
     def get_model_path(self) -> str:
         return os.path.join(self.BASE_PATH, self.training.MODEL_OUTPUT_FILE)
+        
+    # --- FIX: Added missing path methods ---
+    def get_raw_trades_path(self, period_name: str) -> str:
+        return os.path.join(self.BASE_PATH, period_name, "raw", "trades")
+
+    def get_funding_rate_path(self) -> str:
+        return os.path.join(self.BASE_PATH, "funding_rate")
+    # --- END FIX ---
 
 # --- Singleton Instance ---
 SETTINGS = GlobalConfig()
