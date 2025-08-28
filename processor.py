@@ -1,6 +1,8 @@
+
 #processor.py
 
 import os
+import glob
 import zipfile
 import pandas as pd
 import numpy as np
@@ -8,7 +10,28 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from tqdm.auto import tqdm
 from ..config import SETTINGS
-from ..utils import get_files_for_period
+
+def get_files_for_period(period_name: str, data_type: str = "processed_trades") -> list[str]:
+    """
+    Finds all data files for a given period (e.g., 'in_sample') and data type.
+    Args:
+        period_name: The name of the period ('in_sample', 'out_of_sample').
+        data_type: The type of data ('raw_trades', 'processed_trades').
+    """
+    if data_type == "raw_trades":
+        path_template = SETTINGS.get_raw_trades_path(period_name)
+        file_extension = ".zip"
+    elif data_type == "processed_trades":
+        path_template = SETTINGS.get_processed_trades_path(period_name)
+        file_extension = ".parquet"
+    else:
+        raise ValueError(f"Unknown data_type: {data_type}")
+
+    search_path = os.path.join(path_template, f"*{file_extension}")
+    files = sorted(glob.glob(search_path))
+    if not files:
+        print(f"Warning: No files found for {data_type} in period {period_name} at {search_path}")
+    return files
 
 def _process_chunk(chunk_df: pd.DataFrame) -> pd.DataFrame:
     """Transforms a raw data chunk into the clean, simulation-ready format."""
@@ -64,26 +87,25 @@ def process_raw_trades(period_name: str):
         except Exception as e:
             print(f"  -> ❌ FAILED. An unexpected error occurred: {e}")
 
-def create_bars_from_trades() -> pd.DataFrame:
-    """Loads all processed trade data, resamples it into bars, and calculates ATR."""
-    print("\n--- Preparing bar data for labeling ---")
-    all_trade_files = get_files_for_period("in_sample") + get_files_for_period("out_of_sample")
+def create_bars_from_trades(period_name: str) -> pd.DataFrame:
+    """Loads processed trade data for a specific period and resamples it into bars."""
+    print(f"\n--- Preparing bar data for period: {period_name} ---")
+    all_trade_files = get_files_for_period(period_name, "processed_trades")
 
     if not all_trade_files:
-        raise FileNotFoundError("No processed trade files found. Cannot generate bars.")
+        raise FileNotFoundError(f"No processed trade files found for period '{period_name}'. Cannot generate bars.")
 
-    all_bars = []
-    for file_path in tqdm(all_trade_files, desc="Reading processed trade files"):
+    all_ohlc = []
+    for file_path in tqdm(all_trade_files, desc=f"Reading processed trade files for {period_name}"):
         df = pd.read_parquet(file_path, columns=['timestamp', 'price']).set_index('timestamp')
-        all_bars.append(df['price'].resample(SETTINGS.labeling.BAR_TIMEFRAME).ohlc())
+        resample_freq = SETTINGS.BASE_BAR_TIMEFRAME.replace('S', 's').replace('M', 'T')
+        all_ohlc.append(df['price'].resample(resample_freq).ohlc())
 
-    bars_df = pd.concat(all_bars).sort_index().dropna()
-    high_low = bars_df['high'] - bars_df['low']
-    high_close = np.abs(bars_df['high'] - bars_df['close'].shift())
-    low_close = np.abs(bars_df['low'] - bars_df['close'].shift())
-    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-    atr_lookback = SETTINGS.labeling.ATR_LOOKBACK
-    bars_df['atr'] = tr.ewm(alpha=1/atr_lookback, min_periods=atr_lookback).mean()
+    if not all_ohlc:
+        print("Warning: No bar data was generated.")
+        return pd.DataFrame()
+
+    bars_df = pd.concat(all_ohlc).sort_index().dropna()
     
     print(f"Prepared {len(bars_df):,} bars from {bars_df.index.min()} to {bars_df.index.max()}")
     return bars_df.reset_index()
