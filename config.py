@@ -1,3 +1,4 @@
+
 # Zero1-main/config.py
 
 import os
@@ -13,9 +14,10 @@ class StrategyConfig:
     """Configuration for the Multi-Timeframe Hybrid TIN."""
     # Define the lookback window (in bars) for each required input series.
     LOOKBACK_PERIODS: Dict[str, int] = field(default_factory=lambda: {
-        'price_15m': 50,  # For tactical indicator cells
-        'price_1h': 50,   # For strategic indicator cells
-        'context': 2,     # Direct regime features (volatility, trend)
+        'price_5m': 50,    # For tactical indicator cells
+        'price_15m': 50,   # For short-term indicator cells
+        'price_1h': 50,    # For strategic indicator cells
+        'context': 4,      # New context vector: volatility, trend, dist_to_support, dist_to_resistance
     })
     # The number of actions the agent can take (e.g., Hold, Buy, Sell).
     ACTION_SPACE_SIZE: int = 3
