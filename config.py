@@ -1,4 +1,4 @@
-# rl-main/config.py
+# Zero1-main/config.py
 
 import os
 from datetime import datetime
@@ -7,18 +7,15 @@ from typing import Dict, List
 import pandas as pd
 import torch
 
-# --- NEW TRADING STRATEGY CONFIGURATION (Hierarchical TINs) ---
+# --- TRADING STRATEGY CONFIGURATION (Hybrid Monolithic TIN) ---
 
 @dataclass(frozen=True)
-class HierarchicalTINConfig:
-    """Configuration for the multi-timeframe Technical Indicator Network."""
-    # Define the lookback window (in bars) for each specialist agent.
+class StrategyConfig:
+    """Configuration for the Hybrid Monolithic TIN."""
+    # Define the lookback window (in bars) for each required input series.
+    # The model cells (MACD, RSI) will use slices of this data.
     LOOKBACK_PERIODS: Dict[str, int] = field(default_factory=lambda: {
-        '1S': 60,    # Tactical: Looks at the last 60 seconds
-        '1M': 90,    # Intraday Momentum: Looks at the last 1.5 hours
-        '15M': 48,   # Intraday Structure: Looks at the last 12 hours
-        '1H': 72,    # Daily Trend: Looks at the last 3 days
-        '4H': 60,    # Strategic Trend: Looks at the last 10 days
+        'price_1m': 50,  # A single long series of 1-minute prices
     })
     # The number of actions the agent can take (e.g., Hold, Buy, Sell).
     ACTION_SPACE_SIZE: int = 3
@@ -28,7 +25,7 @@ class HierarchicalTINConfig:
 @dataclass(frozen=True)
 class RLTrainingConfig:
     """Configuration for the Deep Q-Network (DQN) training process."""
-    MODEL_OUTPUT_FILE: str = "hierarchical_tin_model.pth"
+    MODEL_OUTPUT_FILE: str = "hybrid_monolithic_tin.pth"
 
     # --- RL Hyperparameters ---
     NUM_EPISODES: int = 50
@@ -59,24 +56,15 @@ class GlobalConfig:
     OUT_OF_SAMPLE_END: datetime = datetime(2025, 7, 31)
 
     # --- Base bar data for environment ---
-    # The environment will be driven by the highest frequency data.
-    BASE_BAR_TIMEFRAME: str = "1S"
+    BASE_BAR_TIMEFRAME: str = "1T"
 
-    # --- FIX: Added missing data schema attributes ---
-    BINANCE_RAW_COLUMNS: List[str] = field(default_factory=lambda: [
-        'id', 'price', 'qty', 'quoteQty', 'time', 'is_buyer_maker'
-    ])
-    FINAL_COLUMNS: List[str] = field(default_factory=lambda: [
-        'trade_id', 'timestamp', 'price', 'size', 'side', 'asset'
-    ])
-    DTYPE_MAP: Dict[str, str] = field(default_factory=lambda: {
-        'id': 'int64', 'price': 'float64', 'qty': 'float64',
-        'quoteQty': 'float64', 'time': 'int64', 'is_buyer_maker': 'bool'
-    })
-    # --- END FIX ---
+    # --- Data Schema Attributes ---
+    BINANCE_RAW_COLUMNS: List[str] = field(default_factory=lambda: ['id', 'price', 'qty', 'quoteQty', 'time', 'is_buyer_maker'])
+    FINAL_COLUMNS: List[str] = field(default_factory=lambda: ['trade_id', 'timestamp', 'price', 'size', 'side', 'asset'])
+    DTYPE_MAP: Dict[str, str] = field(default_factory=lambda: {'id': 'int64', 'price': 'float64', 'qty': 'float64', 'quoteQty': 'float64', 'time': 'int64', 'is_buyer_maker': 'bool'})
 
     # --- Sub-configurations ---
-    strategy: HierarchicalTINConfig = field(default_factory=HierarchicalTINConfig)
+    strategy: StrategyConfig = field(default_factory=StrategyConfig)
     training: RLTrainingConfig = field(default_factory=RLTrainingConfig)
 
     # --- Directory Methods ---
@@ -86,13 +74,11 @@ class GlobalConfig:
     def get_model_path(self) -> str:
         return os.path.join(self.BASE_PATH, self.training.MODEL_OUTPUT_FILE)
         
-    # --- FIX: Added missing path methods ---
     def get_raw_trades_path(self, period_name: str) -> str:
         return os.path.join(self.BASE_PATH, period_name, "raw", "trades")
 
     def get_funding_rate_path(self) -> str:
         return os.path.join(self.BASE_PATH, "funding_rate")
-    # --- END FIX ---
 
 # --- Singleton Instance ---
 SETTINGS = GlobalConfig()
