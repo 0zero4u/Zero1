@@ -54,52 +54,84 @@ class LearnableRSICell(nn.Module):
         rs = avg_gain_val / (avg_loss_val + 1e-8); rsi = 100.0 - (100.0 / (1.0 + rs))
         return rsi / 50.0 - 1.0
 
-# --- The Main Multi-Timeframe Hybrid Model ---
+# --- The Main Multi-Timeframe Hybrid Model (UPDATED with LSTM Head) ---
 
 class MultiTimeframeHybridTIN(nn.Module):
     """
     A singular agent with indicator cells analyzing multiple timeframes,
-    plus direct context features (regimes), feeding into a decision head.
+    plus direct context features (regimes), feeding into a recurrent (LSTM) decision head.
+    This model processes sequences of states to capture temporal dynamics.
     """
-    def __init__(self):
+    def __init__(self, lstm_hidden_size=64, lstm_layers=2):
         super(MultiTimeframeHybridTIN, self).__init__()
-        print("--- Building Multi-Timeframe Hybrid TIN ---")
+        print("--- Building Multi-Timeframe Hybrid TIN with LSTM Head ---")
 
         # --- Instantiate Indicator Cells for each Timeframe ---
         self.cell_5m = LearnableMACDCell()
         self.cell_15m = LearnableRSICell()
         self.cell_1h = LearnableMACDCell()
         
-        # --- Define the Integration and Decision Head Dynamically ---
-        # Calculate number of indicator signals by counting 'price_' keys
+        # --- Define the Integration and LSTM Decision Head ---
         num_indicator_signals = sum(1 for key in SETTINGS.strategy.LOOKBACK_PERIODS if key.startswith('price_'))
         num_context_features = SETTINGS.strategy.LOOKBACK_PERIODS['context']
         
-        input_size = num_indicator_signals + num_context_features
-        print(f"Decision head input size: {input_size} ({num_indicator_signals} indicator signals + {num_context_features} context features)")
+        self.input_size = num_indicator_signals + num_context_features
+        print(f"LSTM head input feature size per timestep: {self.input_size}")
 
-        self.decision_head = nn.Sequential(
-            nn.Linear(input_size, 128), nn.ReLU(),
-            nn.Linear(128, 64), nn.ReLU(),
-            nn.Linear(64, SETTINGS.strategy.ACTION_SPACE_SIZE))
+        # Recurrent layer to process sequences of indicator/context states
+        self.lstm = nn.LSTM(
+            input_size=self.input_size,
+            hidden_size=lstm_hidden_size,
+            num_layers=lstm_layers,
+            batch_first=True  # Crucial for easier data handling: (Batch, Seq, Feature)
+        )
+
+        # Final linear layer to map LSTM output to Q-values
+        self.q_head = nn.Linear(lstm_hidden_size, SETTINGS.strategy.ACTION_SPACE_SIZE)
 
     def forward(self, state_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
-        # --- Get data for each component from the state dictionary ---
+        # The input tensors in state_dict are now expected to be SEQUENCES
+        # Shape: (batch_size, sequence_length, feature_dimension)
+        # e.g., price_5m: (B, S, 50), context_features: (B, S, 4)
+
         price_5m = state_dict['price_5m']
         price_15m = state_dict['price_15m']
         price_1h = state_dict['price_1h']
         context_features = state_dict['context']
-
-        # --- Get signals from all cells in parallel ---
-        s_5m = self.cell_5m(price_5m)
-        s_15m = self.cell_15m(price_15m)
-        s_1h = self.cell_1h(price_1h)
-
-        # --- Integration Layer: Concatenate all signals and features ---
-        final_input = torch.cat([
-            s_5m, s_15m, s_1h,
-            context_features
-        ], dim=1)
         
+        batch_size, seq_len = price_5m.shape[0], price_5m.shape[1]
+        
+        def process_sequence(cell, price_seq):
+            """
+            Helper to process a sequence of price windows through a stateless indicator cell.
+            It reshapes the input from (Batch, Seq, Lookback) to (Batch*Seq, Lookback),
+            processes all timesteps at once for efficiency, and then reshapes the output
+            back to (Batch, Seq, 1).
+            """
+            price_flat = price_seq.view(batch_size * seq_len, -1)
+            signal_flat = cell(price_flat)
+            return signal_flat.view(batch_size, seq_len, 1)
+
+        # --- Get signal sequences from all cells in parallel ---
+        s_5m_seq = process_sequence(self.cell_5m, price_5m)
+        s_15m_seq = process_sequence(self.cell_15m, price_15m)
+        s_1h_seq = process_sequence(self.cell_1h, price_1h)
+
+        # --- Integration Layer: Concatenate all signal and feature sequences ---
+        # This creates a final input sequence of shape (Batch, Seq, input_size)
+        final_input_sequence = torch.cat([
+            s_5m_seq, s_15m_seq, s_1h_seq,
+            context_features
+        ], dim=2) # Concatenate along the feature dimension
+        
+        # --- Pass sequence through LSTM ---
+        # lstm_out shape: (Batch, Seq, lstm_hidden_size)
+        # We don't need the hidden/cell states for Q-learning here.
+        lstm_out, _ = self.lstm(final_input_sequence)
+
         # --- Final Decision ---
-        return self.decision_head(final_input)
+        # For Q-value prediction, we only need the output from the LAST element of the sequence.
+        last_time_step_out = lstm_out[:, -1, :]
+        q_values = self.q_head(last_time_step_out)
+        
+        return q_values
