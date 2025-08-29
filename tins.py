@@ -1,4 +1,5 @@
 
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -52,17 +53,17 @@ class LearnableRSICell(nn.Module):
         rs = avg_gain_val / (avg_loss_val + 1e-8); rsi = 100.0 - (100.0 / (1.0 + rs))
         return rsi / 50.0 - 1.0
 
-# --- The Main Multi-Timeframe Hybrid Model (UPDATED with LSTM Head) ---
+# --- The Main Multi-Timeframe Hybrid Model (UPDATED with Dueling DQN Head) ---
 
 class MultiTimeframeHybridTIN(nn.Module):
     """
     A singular agent with indicator cells analyzing multiple timeframes,
-    plus direct context features (regimes), feeding into a recurrent (LSTM) decision head.
+    plus direct context features (regimes), feeding into a recurrent (LSTM) Dueling decision head.
     This model processes sequences of states to capture temporal dynamics.
     """
     def __init__(self, lstm_hidden_size=64, lstm_layers=2):
         super(MultiTimeframeHybridTIN, self).__init__()
-        print("--- Building Multi-Timeframe Hybrid TIN with LSTM Head ---")
+        print("--- Building Multi-Timeframe Hybrid TIN with Dueling LSTM Head ---")
 
         # --- Instantiate Indicator Cells for each Timeframe ---
         self.cell_5m = LearnableMACDCell()
@@ -84,8 +85,19 @@ class MultiTimeframeHybridTIN(nn.Module):
             batch_first=True  # Crucial for easier data handling: (Batch, Seq, Feature)
         )
 
-        # Final linear layer to map LSTM output to Q-values
-        self.q_head = nn.Linear(lstm_hidden_size, SETTINGS.strategy.ACTION_SPACE_SIZE)
+        # --- Dueling DQN Head ---
+        # 1. Advantage Stream: Outputs advantage for each action
+        self.advantage_stream = nn.Sequential(
+            nn.Linear(lstm_hidden_size, lstm_hidden_size // 2),
+            nn.ReLU(),
+            nn.Linear(lstm_hidden_size // 2, SETTINGS.strategy.ACTION_SPACE_SIZE)
+        )
+        # 2. Value Stream: Outputs a single value for the state
+        self.value_stream = nn.Sequential(
+            nn.Linear(lstm_hidden_size, lstm_hidden_size // 2),
+            nn.ReLU(),
+            nn.Linear(lstm_hidden_size // 2, 1)
+        )
 
     def forward(self, state_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
         # The input tensors in state_dict are now expected to be SEQUENCES
@@ -130,6 +142,12 @@ class MultiTimeframeHybridTIN(nn.Module):
         # --- Final Decision ---
         # For Q-value prediction, we only need the output from the LAST element of the sequence.
         last_time_step_out = lstm_out[:, -1, :]
-        q_values = self.q_head(last_time_step_out)
+        
+        # Calculate advantages and state value from the Dueling streams
+        advantages = self.advantage_stream(last_time_step_out)
+        values = self.value_stream(last_time_step_out)
+
+        # Combine them using the Dueling DQN formula: Q(s,a) = V(s) + (A(s,a) - mean(A(s,a)))
+        q_values = values + (advantages - advantages.mean(dim=1, keepdim=True))
         
         return q_values
