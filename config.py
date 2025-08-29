@@ -1,5 +1,3 @@
-
-
 import os
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -13,14 +11,14 @@ class StrategyConfig:
     """Configuration for the Multi-Timeframe Hybrid TIN."""
     # Define the lookback window (in bars) for each required input series.
     LOOKBACK_PERIODS: Dict[str, int] = field(default_factory=lambda: {
-        'price_5m': 50,    # For tactical cells (MACD, ROC)
+        'price_5m': 70,    # For tactical cells (fast/slow MACD, fast/slow ROC)
         'price_15m': 50,   # For short-term cells (RSI, BBands %B)
         'ohlc_15m': 50,    # For volatility cells (ATR)
-        'price_1h': 50,    # For strategic cells (MACD)
+        'price_1h': 70,    # For strategic cells (fast/slow MACD)
         'context': 4,      # Context vector: volatility, trend, dist_to_support, dist_to_resistance
     })
-    # The number of actions the agent can take (e.g., Hold, Buy, Sell).
-    ACTION_SPACE_SIZE: int = 3
+    # The number of actions the agent can take (e.g., Sell All, Sell 50%, Hold, Buy 50%, Buy All).
+    ACTION_SPACE_SIZE: int = 5
 
 # --- MODEL TRAINING CONFIGURATION (Reinforcement Learning) ---
 
