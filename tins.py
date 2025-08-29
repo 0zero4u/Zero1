@@ -1,3 +1,4 @@
+
 # Zero1-main/tins.py
 
 import torch
@@ -65,15 +66,18 @@ class MultiTimeframeHybridTIN(nn.Module):
         print("--- Building Multi-Timeframe Hybrid TIN ---")
 
         # --- Instantiate Indicator Cells for each Timeframe ---
-        self.macd_cell_15m = LearnableMACDCell()
-        self.rsi_cell_15m = LearnableRSICell()
-        self.macd_cell_1h = LearnableMACDCell()
-        self.rsi_cell_1h = LearnableRSICell()
+        self.cell_5m = LearnableMACDCell()
+        self.cell_15m = LearnableRSICell()
+        self.cell_1h = LearnableMACDCell()
         
-        # --- Define the Integration and Decision Head ---
-        num_tactical = 2; num_strategic = 2; num_context = 2 # from config
-        input_size = num_tactical + num_strategic + num_context
+        # --- Define the Integration and Decision Head Dynamically ---
+        # Calculate number of indicator signals by counting 'price_' keys
+        num_indicator_signals = sum(1 for key in SETTINGS.strategy.LOOKBACK_PERIODS if key.startswith('price_'))
+        num_context_features = SETTINGS.strategy.LOOKBACK_PERIODS['context']
         
+        input_size = num_indicator_signals + num_context_features
+        print(f"Decision head input size: {input_size} ({num_indicator_signals} indicator signals + {num_context_features} context features)")
+
         self.decision_head = nn.Sequential(
             nn.Linear(input_size, 128), nn.ReLU(),
             nn.Linear(128, 64), nn.ReLU(),
@@ -81,20 +85,19 @@ class MultiTimeframeHybridTIN(nn.Module):
 
     def forward(self, state_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
         # --- Get data for each component from the state dictionary ---
+        price_5m = state_dict['price_5m']
         price_15m = state_dict['price_15m']
         price_1h = state_dict['price_1h']
         context_features = state_dict['context']
 
         # --- Get signals from all cells in parallel ---
-        s_macd_15m = self.macd_cell_15m(price_15m)
-        s_rsi_15m = self.rsi_cell_15m(price_15m)
-        s_macd_1h = self.macd_cell_1h(price_1h)
-        s_rsi_1h = self.rsi_cell_1h(price_1h)
+        s_5m = self.cell_5m(price_5m)
+        s_15m = self.cell_15m(price_15m)
+        s_1h = self.cell_1h(price_1h)
 
         # --- Integration Layer: Concatenate all signals and features ---
         final_input = torch.cat([
-            s_macd_15m, s_rsi_15m,
-            s_macd_1h, s_rsi_1h,
+            s_5m, s_15m, s_1h,
             context_features
         ], dim=1)
         
