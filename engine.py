@@ -1,4 +1,3 @@
-# rl-main/engine.py
 
 import numpy as np
 import pandas as pd
@@ -34,10 +33,12 @@ class HierarchicalTradingEnvironment:
             freq = key.split('_')[-1].replace('m','T').replace('h','H')
 
             if freq not in self.timeframes:
-                df_resampled = base_df['close'].resample(freq).last().to_frame()
-                if freq == self.cfg.BASE_BAR_TIMEFRAME: # Keep full OHLC for base
+                # Keep full OHLC for the base timeframe, as it's needed for multiple features
+                if freq == self.cfg.BASE_BAR_TIMEFRAME:
                     df_resampled = base_df.resample(freq).agg({'open':'first','high':'max','low':'min','close':'last'})
-                
+                else: # For other timeframes, just keep the close price for now
+                    df_resampled = base_df['close'].resample(freq).last().to_frame()
+
                 df_resampled.fillna(method='ffill', inplace=True)
                 self.timeframes[freq] = df_resampled.dropna()
         
@@ -113,22 +114,32 @@ class HierarchicalTradingEnvironment:
         """Constructs the dictionary of price windows for each specialist TIN."""
         specialist_states = {}
         for key, lookback in self.strat_cfg.LOOKBACK_PERIODS.items():
-            if not key.startswith('price_'): continue
+            if not (key.startswith('price_') or key.startswith('ohlc_')):
+                continue
 
             freq = key.split('_')[-1].replace('m','T').replace('h','H')
             df_tf = self.timeframes[freq]
-
             end_idx = df_tf.index.get_loc(current_timestamp, method='ffill')
             start_idx = max(0, end_idx - lookback + 1)
-            window_prices = df_tf.iloc[start_idx : end_idx + 1]['close'].values.astype(np.float32)
 
-            if len(window_prices) < lookback:
-                padding = np.full(lookback - len(window_prices), window_prices[0])
-                window_prices = np.concatenate([padding, window_prices])
-            
-            last_price = window_prices[-1]
-            normalized_window = (window_prices / last_price) - 1.0 if last_price > 1e-6 else np.zeros_like(window_prices)
-            specialist_states[key] = torch.from_numpy(normalized_window)
+            if key.startswith('price_'):
+                window = df_tf.iloc[start_idx : end_idx + 1]['close'].values.astype(np.float32)
+                if len(window) < lookback:
+                    padding = np.full(lookback - len(window), window[0])
+                    window = np.concatenate([padding, window])
+                last_price = window[-1]
+                normalized_window = (window / last_price) - 1.0 if last_price > 1e-6 else np.zeros_like(window)
+                specialist_states[key] = torch.from_numpy(normalized_window)
+
+            elif key.startswith('ohlc_'):
+                window = df_tf.iloc[start_idx : end_idx + 1][['open','high','low','close']].values.astype(np.float32)
+                if len(window) < lookback:
+                    padding = np.repeat(window[0:1], lookback - len(window), axis=0)
+                    window = np.concatenate([padding, window], axis=0)
+                last_price = window[-1, 3] # Get last close price
+                normalized_window = (window / last_price) - 1.0 if last_price > 1e-6 else np.zeros_like(window)
+                specialist_states[key] = torch.from_numpy(normalized_window)
+
         return specialist_states
 
     def _get_market_context_features(self, current_timestamp) -> torch.Tensor:
@@ -178,3 +189,4 @@ class HierarchicalTradingEnvironment:
         
         next_state = None if self.done else self._get_state()
         return next_state, reward, self.done
+--- END OF MODIFIED FILE Zero1-main/engine.py ---
