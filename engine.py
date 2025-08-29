@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 import torch
@@ -168,17 +167,30 @@ class HierarchicalTradingEnvironment:
         return self._get_state()
 
     def step(self, action: int) -> tuple[dict, float, bool]:
-        """Executes one time step within the environment."""
+        """
+        Executes one time step within the environment based on a 5-point action space.
+        0: Sell All, 1: Sell 50%, 2: Hold, 3: Buy 50%, 4: Buy All
+        """
         current_price = self.timeframes[self.cfg.BASE_BAR_TIMEFRAME]['close'].iloc[self.current_step]
         initial_portfolio_value = self.balance + self.asset_held * current_price
 
-        if action == 1 and self.balance > 10: # Buy
+        # --- Execute Action ---
+        if action == 4 and self.balance > 10:  # Buy All
             self.asset_held += (self.balance * 0.999) / current_price # Fee
             self.balance = 0.0
-        elif action == 2 and self.asset_held > 0: # Sell
+        elif action == 3 and self.balance > 10: # Buy 50%
+            amount_to_invest = self.balance * 0.5
+            self.asset_held += (amount_to_invest * 0.999) / current_price # Fee
+            self.balance -= amount_to_invest
+        elif action == 0 and self.asset_held > 0: # Sell All
             self.balance += (self.asset_held * current_price) * 0.999 # Fee
             self.asset_held = 0.0
-        
+        elif action == 1 and self.asset_held > 0: # Sell 50%
+            amount_to_sell = self.asset_held * 0.5
+            self.balance += (amount_to_sell * current_price) * 0.999 # Fee
+            self.asset_held -= amount_to_sell
+        # Action 2 (Hold) implies no change.
+
         self.current_step += 1
         if self.current_step >= self.max_step:
             self.done = True
