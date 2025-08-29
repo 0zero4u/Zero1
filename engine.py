@@ -18,12 +18,24 @@ class HierarchicalTradingEnvironment:
         print("--- Initializing Hierarchical Environment ---")
         base_df = df_base.set_index('timestamp')
         
+        # --- FIX: Ensure all required timeframes (for model AND features) are created ---
+        # Get timeframes needed by the model's indicator cells
+        model_timeframes = set(self.strat_cfg.LOOKBACK_PERIODS.keys())
+        # Add timeframes required internally for feature engineering
+        feature_timeframes = {'1H', '4H'}
+        all_required_timeframes = model_timeframes.union(feature_timeframes)
+
         # Create and store a dataframe for each required timeframe
-        self.timeframes = {tf: None for tf in self.strat_cfg.LOOKBACK_PERIODS.keys()}
-        print("Resampling data for all timeframes...")
+        self.timeframes = {tf: None for tf in all_required_timeframes}
+        print(f"Resampling data for required timeframes: {sorted(list(all_required_timeframes))}")
         for tf_str in self.timeframes.keys():
             # Convert our custom timeframe string to pandas frequency format
-            resample_freq = tf_str.replace('S', 's').replace('M', 'T')
+            # Handle special cases like '1H' which pandas doesn't recognize from 'H'
+            if tf_str.upper() in ['1H', '4H', '1D']:
+                 resample_freq = tf_str.upper()
+            else: # For 'price_15m', 'context', etc.
+                 resample_freq = tf_str.split('_')[-1].replace('m', 'T').replace('h','H')
+
             df_resampled = base_df['close'].resample(resample_freq).last().to_frame()
             df_resampled['close'].fillna(method='ffill', inplace=True)
             self.timeframes[tf_str] = df_resampled.dropna()
@@ -45,6 +57,7 @@ class HierarchicalTradingEnvironment:
     def _precompute_market_features(self):
         """Calculates and stores high-level context features like volatility and trend."""
         print("Pre-computing market context features...")
+        # Note: The '1H' key is now guaranteed to exist due to the fix in __init__
         df_1h = self.timeframes['1H'].copy()
         
         # Volatility Feature: 1-hour Bollinger Band Width Percentile
@@ -55,6 +68,7 @@ class HierarchicalTradingEnvironment:
         df_1h['bbw_1h_pct'] = bbw.rolling(250).apply(lambda x: pd.Series(x).rank(pct=True).iloc[-1] * 100, raw=False)
         
         # Trend Feature: 4-hour Price distance from a slow moving average
+        # Note: The '4H' key is now guaranteed to exist due to the fix in __init__
         df_4h = self.timeframes['4H'].copy()
         df_4h['price_dist_ma_4h'] = (df_4h['close'] / df_4h['close'].rolling(50).mean()) - 1.0
 
@@ -69,8 +83,21 @@ class HierarchicalTradingEnvironment:
     def _get_specialist_states(self, current_timestamp) -> dict[str, torch.Tensor]:
         """Constructs the dictionary of price windows for each specialist TIN."""
         specialist_states = {}
-        for tf, lookback in self.strat_cfg.LOOKBACK_PERIODS.items():
-            df_tf = self.timeframes[tf]
+        # FIX: The key for timeframe data is now correctly parsed
+        for key, lookback in self.strat_cfg.LOOKBACK_PERIODS.items():
+            # For keys like 'price_15m', extract '15m' as the timeframe identifier
+            tf_str = key.split('_')[-1].replace('m','T').replace('h','H') if '_' in key else key
+            
+            # For 'context' we don't need a price series
+            if key == 'context': continue
+
+            # Correctly map model input keys to the resampled dataframes
+            # e.g., 'price_1h' needs data from the '1H' dataframe
+            df_tf_key = tf_str.upper() if 'h' in tf_str else tf_str
+            df_tf = self.timeframes.get(df_tf_key)
+            if df_tf is None:
+                raise KeyError(f"Could not find timeframe data for model input key '{key}'. Attempted to use '{df_tf_key}'.")
+
             end_idx = df_tf.index.get_loc(current_timestamp, method='ffill')
             start_idx = max(0, end_idx - lookback + 1)
             window_prices = df_tf.iloc[start_idx : end_idx + 1]['close'].values.astype(np.float32)
@@ -81,7 +108,7 @@ class HierarchicalTradingEnvironment:
             
             last_price = window_prices[-1]
             normalized_window = (window_prices / last_price) - 1.0 if last_price > 1e-6 else np.zeros_like(window_prices)
-            specialist_states[tf] = torch.from_numpy(normalized_window)
+            specialist_states[key] = torch.from_numpy(normalized_window)
         return specialist_states
 
     def _get_market_context_features(self, current_timestamp) -> torch.Tensor:
@@ -95,18 +122,20 @@ class HierarchicalTradingEnvironment:
     def _get_state(self) -> dict[str, any]:
         """Returns the full state dictionary for the HierarchicalTIN."""
         current_timestamp = self.base_timestamps[self.current_step]
-        return {
-            'specialists': self._get_specialist_states(current_timestamp),
-            'context': self._get_market_context_features(current_timestamp)
-        }
+        state_data = self._get_specialist_states(current_timestamp)
+        state_data['context'] = self._get_market_context_features(current_timestamp)
+        return state_data
 
     def reset(self) -> dict[str, any]:
         """Resets the environment to a starting point with sufficient history."""
         self.balance = 10000.0
         self.asset_held = 0.0
         self.done = False
-        # A simple way to ensure enough history is to start N steps in, where N is the largest lookback in seconds.
-        self.current_step = int(4 * 3600 * 1.2) # Start ~5 hours into the data to be safe
+        # --- FIX: Replace magic number with a robust calculation ---
+        # The longest lookback is for the BBW percentile (250 bars) on 1H data.
+        # We need to ensure enough history exists in our BASE (15min) timeframe.
+        # 250 (1-hour bars) * 4 (15-min bars per hour) = 1000 bars. Add a safety margin.
+        self.current_step = 1050 
         return self._get_state()
 
     def step(self, action: int) -> tuple[dict, float, bool]:
