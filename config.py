@@ -17,8 +17,8 @@ class StrategyConfig:
         'price_1h': 70,    # For strategic cells (fast/slow MACD)
         'context': 4,      # Context vector: volatility, trend, dist_to_support, dist_to_resistance
     })
-    # The number of actions the agent can take (e.g., Sell All, Sell 50%, Hold, Buy 50%, Buy All).
-    ACTION_SPACE_SIZE: int = 5
+    # The number of actions the agent can take. Now updated to 7.
+    ACTION_SPACE_SIZE: int = 7
 
 # --- MODEL TRAINING CONFIGURATION (Reinforcement Learning) ---
 
