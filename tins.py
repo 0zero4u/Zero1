@@ -1,5 +1,3 @@
-
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -114,45 +112,47 @@ class LearnableBBandsCell(nn.Module):
 
 class MultiTimeframeHybridTIN(nn.Module):
     """
-    A singular agent with indicator cells analyzing multiple timeframes,
-    plus direct context features (regimes), feeding into a recurrent (LSTM) Dueling decision head.
-    This model processes sequences of states to capture temporal dynamics.
+    A singular agent with a wide array of indicator cells analyzing multiple timeframes and speeds,
+    plus direct context features, feeding into a recurrent (LSTM) Dueling decision head.
     """
     def __init__(self, lstm_hidden_size=64, lstm_layers=2):
         super(MultiTimeframeHybridTIN, self).__init__()
-        print("--- Building Multi-Timeframe Hybrid TIN with Dueling LSTM Head ---")
+        print("--- Building Multi-Timeframe Hybrid TIN with Dueling LSTM Head & Multi-Speed Cells ---")
 
-        # --- Instantiate Indicator Cells for each Timeframe ---
-        self.cell_5m_macd = LearnableMACDCell()
-        self.cell_5m_roc = LearnableROCCell()         # New ROC cell for 5m data
+        # --- Instantiate Indicator Cells for each Timeframe and Speed ---
+        # 5-minute Tactical Cells
+        self.cell_5m_macd_fast = LearnableMACDCell(fast_period=6, slow_period=13, signal_period=5)
+        self.cell_5m_macd_slow = LearnableMACDCell(fast_period=24, slow_period=52, signal_period=18)
+        self.cell_5m_roc_fast = LearnableROCCell(roc_period=9)
+        self.cell_5m_roc_slow = LearnableROCCell(roc_period=21)
+        # 15-minute Short-Term Cells
         self.cell_15m_rsi = LearnableRSICell()
-        self.cell_15m_atr = LearnableATRCell()        # New ATR cell for 15m data
-        self.cell_15m_bbands = LearnableBBandsCell()  # New BBands%B cell for 15m data
-        self.cell_1h_macd = LearnableMACDCell()
+        self.cell_15m_atr = LearnableATRCell()
+        self.cell_15m_bbands = LearnableBBandsCell()
+        # 1-hour Strategic Cells
+        self.cell_1h_macd_fast = LearnableMACDCell(fast_period=6, slow_period=13, signal_period=5)
+        self.cell_1h_macd_slow = LearnableMACDCell(fast_period=24, slow_period=52, signal_period=18)
         
         # --- Define the Integration and LSTM Decision Head ---
-        num_indicator_signals = 6 # MACD, ROC, RSI, ATR, BBands%B, MACD
+        num_indicator_signals = 9 # 4 (5m) + 3 (15m) + 2 (1h)
         num_context_features = SETTINGS.strategy.LOOKBACK_PERIODS['context']
         
         self.input_size = num_indicator_signals + num_context_features
         print(f"LSTM head input feature size per timestep: {self.input_size}")
 
-        # Recurrent layer to process sequences of indicator/context states
         self.lstm = nn.LSTM(
             input_size=self.input_size,
             hidden_size=lstm_hidden_size,
             num_layers=lstm_layers,
-            batch_first=True  # Crucial for easier data handling: (Batch, Seq, Feature)
+            batch_first=True
         )
 
         # --- Dueling DQN Head ---
-        # 1. Advantage Stream: Outputs advantage for each action
         self.advantage_stream = nn.Sequential(
             nn.Linear(lstm_hidden_size, lstm_hidden_size // 2),
             nn.ReLU(),
             nn.Linear(lstm_hidden_size // 2, SETTINGS.strategy.ACTION_SPACE_SIZE)
         )
-        # 2. Value Stream: Outputs a single value for the state
         self.value_stream = nn.Sequential(
             nn.Linear(lstm_hidden_size, lstm_hidden_size // 2),
             nn.ReLU(),
@@ -160,60 +160,46 @@ class MultiTimeframeHybridTIN(nn.Module):
         )
 
     def forward(self, state_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
-        # The input tensors in state_dict are now expected to be SEQUENCES
-        # Shape: (batch_size, sequence_length, feature_dimension)
-        # e.g., price_5m: (B, S, 50), ohlc_15m: (B, S, 50, 4), context_features: (B, S, 4)
-
         price_5m = state_dict['price_5m']
         price_15m = state_dict['price_15m']
-        ohlc_15m = state_dict['ohlc_15m'] # New OHLC data
+        ohlc_15m = state_dict['ohlc_15m']
         price_1h = state_dict['price_1h']
         context_features = state_dict['context']
         
         batch_size, seq_len = price_5m.shape[0], price_5m.shape[1]
         
         def process_sequence(cell, data_seq):
-            """
-            Helper to process a sequence of data windows through a stateless indicator cell.
-            It reshapes the input from (Batch, Seq, ...) to (Batch*Seq, ...),
-            processes all timesteps at once for efficiency, and then reshapes the output
-            back to (Batch, Seq, 1).
-            """
             data_flat = data_seq.reshape(batch_size * seq_len, *data_seq.shape[2:])
             signal_flat = cell(data_flat)
             return signal_flat.view(batch_size, seq_len, 1)
 
         # --- Get signal sequences from all cells in parallel ---
-        s_5m_macd_seq = process_sequence(self.cell_5m_macd, price_5m)
-        s_5m_roc_seq = process_sequence(self.cell_5m_roc, price_5m)
+        s_5m_macd_fast_seq = process_sequence(self.cell_5m_macd_fast, price_5m)
+        s_5m_macd_slow_seq = process_sequence(self.cell_5m_macd_slow, price_5m)
+        s_5m_roc_fast_seq = process_sequence(self.cell_5m_roc_fast, price_5m)
+        s_5m_roc_slow_seq = process_sequence(self.cell_5m_roc_slow, price_5m)
+        
         s_15m_rsi_seq = process_sequence(self.cell_15m_rsi, price_15m)
         s_15m_atr_seq = process_sequence(self.cell_15m_atr, ohlc_15m)
         s_15m_bbands_seq = process_sequence(self.cell_15m_bbands, price_15m)
-        s_1h_macd_seq = process_sequence(self.cell_1h_macd, price_1h)
+        
+        s_1h_macd_fast_seq = process_sequence(self.cell_1h_macd_fast, price_1h)
+        s_1h_macd_slow_seq = process_sequence(self.cell_1h_macd_slow, price_1h)
 
         # --- Integration Layer: Concatenate all signal and feature sequences ---
-        # This creates a final input sequence of shape (Batch, Seq, input_size)
         final_input_sequence = torch.cat([
-            s_5m_macd_seq, s_5m_roc_seq,
+            s_5m_macd_fast_seq, s_5m_macd_slow_seq, s_5m_roc_fast_seq, s_5m_roc_slow_seq,
             s_15m_rsi_seq, s_15m_atr_seq, s_15m_bbands_seq,
-            s_1h_macd_seq,
+            s_1h_macd_fast_seq, s_1h_macd_slow_seq,
             context_features
-        ], dim=2) # Concatenate along the feature dimension
+        ], dim=2)
         
-        # --- Pass sequence through LSTM ---
-        # lstm_out shape: (Batch, Seq, lstm_hidden_size)
-        # We don't need the hidden/cell states for Q-learning here.
         lstm_out, _ = self.lstm(final_input_sequence)
-
-        # --- Final Decision ---
-        # For Q-value prediction, we only need the output from the LAST element of the sequence.
         last_time_step_out = lstm_out[:, -1, :]
         
-        # Calculate advantages and state value from the Dueling streams
         advantages = self.advantage_stream(last_time_step_out)
         values = self.value_stream(last_time_step_out)
-
-        # Combine them using the Dueling DQN formula: Q(s,a) = V(s) + (A(s,a) - mean(A(s,a)))
+        
         q_values = values + (advantages - advantages.mean(dim=1, keepdim=True))
         
         return q_values
