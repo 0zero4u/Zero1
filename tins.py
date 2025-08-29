@@ -53,6 +53,63 @@ class LearnableRSICell(nn.Module):
         rs = avg_gain_val / (avg_loss_val + 1e-8); rsi = 100.0 - (100.0 / (1.0 + rs))
         return rsi / 50.0 - 1.0
 
+# --- NEW Learnable Indicator Cells ---
+
+class LearnableROCCell(nn.Module):
+    """Calculates Rate of Change (ROC) from a price series."""
+    def __init__(self, roc_period=12):
+        super(LearnableROCCell, self).__init__()
+        self.roc_period = roc_period
+    def forward(self, price_series: torch.Tensor) -> torch.Tensor:
+        close_i_n = price_series[:, -1 - self.roc_period].unsqueeze(-1)
+        close_i = price_series[:, -1].unsqueeze(-1)
+        roc = (close_i - close_i_n) / (close_i_n + 1e-8)
+        return roc
+
+class LearnableATRCell(nn.Module):
+    """Calculates a learnable Average True Range (ATR) from an OHLC series."""
+    def __init__(self, atr_period=14):
+        super(LearnableATRCell, self).__init__()
+        self.atr_period = atr_period
+        self.learnable_ema = IndicatorLinear(atr_period)
+    def forward(self, ohlc_series: torch.Tensor) -> torch.Tensor:
+        # ohlc_series shape: (batch, lookback, 4)
+        highs = ohlc_series[:, :, 1]
+        lows = ohlc_series[:, :, 2]
+        closes = ohlc_series[:, :, 3]
+        prev_closes = torch.cat([closes[:, :1], closes[:, :-1]], dim=1)
+        
+        tr1 = highs - lows
+        tr2 = torch.abs(highs - prev_closes)
+        tr3 = torch.abs(lows - prev_closes)
+        tr = torch.max(torch.max(tr1, tr2), tr3)
+
+        tr_window = tr[:, -self.atr_period:]
+        atr = self.learnable_ema(tr_window)
+        
+        # Normalize ATR by last close price
+        last_close = closes[:, -1].unsqueeze(-1)
+        return atr / (last_close + 1e-8)
+
+class LearnableBBandsCell(nn.Module):
+    """Calculates a learnable Bollinger Bands %B value."""
+    def __init__(self, bbands_period=20):
+        super(LearnableBBandsCell, self).__init__()
+        self.bbands_period = bbands_period
+        self.ma = IndicatorLinear(bbands_period)
+        self.k = nn.Parameter(torch.tensor(2.0)) # Learnable standard deviation multiplier
+    def forward(self, price_series: torch.Tensor) -> torch.Tensor:
+        window = price_series[:, -self.bbands_period:]
+        ma_val = self.ma(window)
+        std_val = torch.std(window, dim=1, keepdim=True)
+        
+        upper_band = ma_val + self.k * std_val
+        lower_band = ma_val - self.k * std_val
+        last_price = price_series[:, -1].unsqueeze(-1)
+        
+        percent_b = (last_price - lower_band) / (upper_band - lower_band + 1e-8)
+        return (percent_b * 2) - 1.0 # Scale to [-1, 1]
+
 # --- The Main Multi-Timeframe Hybrid Model (UPDATED with Dueling DQN Head) ---
 
 class MultiTimeframeHybridTIN(nn.Module):
@@ -66,12 +123,15 @@ class MultiTimeframeHybridTIN(nn.Module):
         print("--- Building Multi-Timeframe Hybrid TIN with Dueling LSTM Head ---")
 
         # --- Instantiate Indicator Cells for each Timeframe ---
-        self.cell_5m = LearnableMACDCell()
-        self.cell_15m = LearnableRSICell()
-        self.cell_1h = LearnableMACDCell()
+        self.cell_5m_macd = LearnableMACDCell()
+        self.cell_5m_roc = LearnableROCCell()         # New ROC cell for 5m data
+        self.cell_15m_rsi = LearnableRSICell()
+        self.cell_15m_atr = LearnableATRCell()        # New ATR cell for 15m data
+        self.cell_15m_bbands = LearnableBBandsCell()  # New BBands%B cell for 15m data
+        self.cell_1h_macd = LearnableMACDCell()
         
         # --- Define the Integration and LSTM Decision Head ---
-        num_indicator_signals = sum(1 for key in SETTINGS.strategy.LOOKBACK_PERIODS if key.startswith('price_'))
+        num_indicator_signals = 6 # MACD, ROC, RSI, ATR, BBands%B, MACD
         num_context_features = SETTINGS.strategy.LOOKBACK_PERIODS['context']
         
         self.input_size = num_indicator_signals + num_context_features
@@ -102,35 +162,41 @@ class MultiTimeframeHybridTIN(nn.Module):
     def forward(self, state_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
         # The input tensors in state_dict are now expected to be SEQUENCES
         # Shape: (batch_size, sequence_length, feature_dimension)
-        # e.g., price_5m: (B, S, 50), context_features: (B, S, 4)
+        # e.g., price_5m: (B, S, 50), ohlc_15m: (B, S, 50, 4), context_features: (B, S, 4)
 
         price_5m = state_dict['price_5m']
         price_15m = state_dict['price_15m']
+        ohlc_15m = state_dict['ohlc_15m'] # New OHLC data
         price_1h = state_dict['price_1h']
         context_features = state_dict['context']
         
         batch_size, seq_len = price_5m.shape[0], price_5m.shape[1]
         
-        def process_sequence(cell, price_seq):
+        def process_sequence(cell, data_seq):
             """
-            Helper to process a sequence of price windows through a stateless indicator cell.
-            It reshapes the input from (Batch, Seq, Lookback) to (Batch*Seq, Lookback),
+            Helper to process a sequence of data windows through a stateless indicator cell.
+            It reshapes the input from (Batch, Seq, ...) to (Batch*Seq, ...),
             processes all timesteps at once for efficiency, and then reshapes the output
             back to (Batch, Seq, 1).
             """
-            price_flat = price_seq.view(batch_size * seq_len, -1)
-            signal_flat = cell(price_flat)
+            data_flat = data_seq.reshape(batch_size * seq_len, *data_seq.shape[2:])
+            signal_flat = cell(data_flat)
             return signal_flat.view(batch_size, seq_len, 1)
 
         # --- Get signal sequences from all cells in parallel ---
-        s_5m_seq = process_sequence(self.cell_5m, price_5m)
-        s_15m_seq = process_sequence(self.cell_15m, price_15m)
-        s_1h_seq = process_sequence(self.cell_1h, price_1h)
+        s_5m_macd_seq = process_sequence(self.cell_5m_macd, price_5m)
+        s_5m_roc_seq = process_sequence(self.cell_5m_roc, price_5m)
+        s_15m_rsi_seq = process_sequence(self.cell_15m_rsi, price_15m)
+        s_15m_atr_seq = process_sequence(self.cell_15m_atr, ohlc_15m)
+        s_15m_bbands_seq = process_sequence(self.cell_15m_bbands, price_15m)
+        s_1h_macd_seq = process_sequence(self.cell_1h_macd, price_1h)
 
         # --- Integration Layer: Concatenate all signal and feature sequences ---
         # This creates a final input sequence of shape (Batch, Seq, input_size)
         final_input_sequence = torch.cat([
-            s_5m_seq, s_15m_seq, s_1h_seq,
+            s_5m_macd_seq, s_5m_roc_seq,
+            s_15m_rsi_seq, s_15m_atr_seq, s_15m_bbands_seq,
+            s_1h_macd_seq,
             context_features
         ], dim=2) # Concatenate along the feature dimension
         
