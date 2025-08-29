@@ -1,4 +1,4 @@
-# Zero1-main/trainer.py
+
 
 import random
 import math
@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 
 from ..processor import create_feature_dataframe
 from .config import SETTINGS
-# IMPORTANT: The model is now the updated one with the LSTM head
+# IMPORTANT: The model is now the updated one with the Dueling LSTM head
 from .tins import MultiTimeframeHybridTIN
 from .engine import HierarchicalTradingEnvironment as TradingEnvironment # Renamed for clarity
 
@@ -76,7 +76,13 @@ def optimize_model(memory, policy_net, target_net, optimizer):
             key: torch.stack([s[key] for s in non_final_next_states_list]) for key in non_final_next_states_list[0].keys()
         }
         with torch.no_grad():
-            next_state_values[non_final_mask] = target_net(non_final_next_states_dict).max(1)[0]
+            # --- Double DQN Implementation ---
+            # 1. Select the best action for the next state using the *policy network*.
+            best_actions_next = policy_net(non_final_next_states_dict).argmax(1).unsqueeze(1)
+            # 2. Evaluate the Q-value of that chosen action using the *target network*.
+            # This decouples selection from evaluation, reducing overestimation.
+            q_values_from_target = target_net(non_final_next_states_dict)
+            next_state_values[non_final_mask] = q_values_from_target.gather(1, best_actions_next).squeeze(1)
     
     expected_state_action_values = (next_state_values * train_cfg.GAMMA) + reward_batch
     criterion = nn.SmoothL1Loss()
@@ -89,7 +95,7 @@ def optimize_model(memory, policy_net, target_net, optimizer):
 
 def train_model():
     cfg = SETTINGS; train_cfg = cfg.training
-    print(f"--- Starting Hybrid Monolithic TIN Model Training on {cfg.DEVICE} (LSTM Head) ---")
+    print(f"--- Starting Hybrid Monolithic TIN Model Training on {cfg.DEVICE} (DDQN + Dueling Head) ---")
     print(f"Using sequence length: {SEQUENCE_LENGTH}")
     
     feature_df = create_feature_dataframe("in_sample")
