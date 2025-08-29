@@ -70,4 +70,3 @@ class GlobalConfig:
 
 # --- Singleton Instance ---
 SETTINGS = GlobalConfig()
---- END OF MODIFIED FILE Zero1-main/config.py ---
