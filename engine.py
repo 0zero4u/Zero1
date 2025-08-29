@@ -152,7 +152,7 @@ class HierarchicalTradingEnvironment:
     def _get_state(self) -> dict[str, any]:
         """Returns the full state dictionary for the HierarchicalTIN."""
         current_timestamp = self.base_timestamps[self.current_step]
-        state_data = self._get_specialist_states(current_timestamp)
+        state__data = self._get_specialist_states(current_timestamp)
         state_data['context'] = self._get_market_context_features(current_timestamp)
         return state_data
 
@@ -168,28 +168,38 @@ class HierarchicalTradingEnvironment:
 
     def step(self, action: int) -> tuple[dict, float, bool]:
         """
-        Executes one time step within the environment based on a 5-point action space.
-        0: Sell All, 1: Sell 50%, 2: Hold, 3: Buy 50%, 4: Buy All
+        Executes one time step within the environment based on a 7-point action space.
+        0: Sell All, 1: Sell 75%, 2: Sell 50%, 3: Hold, 4: Buy 50%, 5: Buy 75%, 6: Buy All
         """
         current_price = self.timeframes[self.cfg.BASE_BAR_TIMEFRAME]['close'].iloc[self.current_step]
         initial_portfolio_value = self.balance + self.asset_held * current_price
 
         # --- Execute Action ---
-        if action == 4 and self.balance > 10:  # Buy All
-            self.asset_held += (self.balance * 0.999) / current_price # Fee
-            self.balance = 0.0
-        elif action == 3 and self.balance > 10: # Buy 50%
+        if action == 6 and self.balance > 10:  # Buy All
+            amount_to_invest = self.balance
+            self.asset_held += (amount_to_invest * 0.999) / current_price
+            self.balance -= amount_to_invest
+        elif action == 5 and self.balance > 10: # Buy 75%
+            amount_to_invest = self.balance * 0.75
+            self.asset_held += (amount_to_invest * 0.999) / current_price
+            self.balance -= amount_to_invest
+        elif action == 4 and self.balance > 10: # Buy 50%
             amount_to_invest = self.balance * 0.5
-            self.asset_held += (amount_to_invest * 0.999) / current_price # Fee
+            self.asset_held += (amount_to_invest * 0.999) / current_price
             self.balance -= amount_to_invest
         elif action == 0 and self.asset_held > 0: # Sell All
-            self.balance += (self.asset_held * current_price) * 0.999 # Fee
-            self.asset_held = 0.0
-        elif action == 1 and self.asset_held > 0: # Sell 50%
-            amount_to_sell = self.asset_held * 0.5
-            self.balance += (amount_to_sell * current_price) * 0.999 # Fee
+            amount_to_sell = self.asset_held
+            self.balance += (amount_to_sell * current_price) * 0.999
             self.asset_held -= amount_to_sell
-        # Action 2 (Hold) implies no change.
+        elif action == 1 and self.asset_held > 0: # Sell 75%
+            amount_to_sell = self.asset_held * 0.75
+            self.balance += (amount_to_sell * current_price) * 0.999
+            self.asset_held -= amount_to_sell
+        elif action == 2 and self.asset_held > 0: # Sell 50%
+            amount_to_sell = self.asset_held * 0.5
+            self.balance += (amount_to_sell * current_price) * 0.999
+            self.asset_held -= amount_to_sell
+        # Action 3 (Hold) implies no change.
 
         self.current_step += 1
         if self.current_step >= self.max_step:
