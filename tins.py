@@ -1,4 +1,4 @@
-# rl-main/tins.py
+# Zero1-main/tins.py
 
 import torch
 import torch.nn as nn
@@ -6,114 +6,79 @@ import torch.nn.functional as F
 from typing import Dict
 from .config import SETTINGS
 
-class LearnableMACD_TIN(nn.Module):
-    """
-    A specialist TIN that learns an MACD-like strategy for a specific timeframe.
-    It uses 1D convolutions to create learnable weighted moving averages.
-    The output is a single value representing the trading signal strength.
-    """
-    def __init__(self, lookback_period: int, fast_ma_fraction=0.25, slow_ma_fraction=0.5, signal_ma_fraction=0.18):
-        super(LearnableMACD_TIN, self).__init__()
-        
-        # Define MA periods as a fraction of the total lookback window
-        # Ensure periods are at least 2 for valid convolution
-        fast_period = max(2, int(lookback_period * fast_ma_fraction))
-        slow_period = max(fast_period + 2, int(lookback_period * slow_ma_fraction)) # Ensure slow > fast
-        signal_period = max(2, int(lookback_period * signal_ma_fraction))
+# --- Core Building Block (Paper's Philosophy) ---
 
-        # Padding='valid' means no padding, output size shrinks.
-        self.slow_ma = nn.Conv1d(1, 1, kernel_size=slow_period, padding='valid', bias=False)
-        self.fast_ma = nn.Conv1d(1, 1, kernel_size=fast_period, padding='valid', bias=False)
-        self.signal_ma = nn.Conv1d(1, 1, kernel_size=signal_period, padding='valid', bias=False)
+class IndicatorLinear(nn.Module):
+    """A linear layer designed to act as a learnable Moving Average."""
+    def __init__(self, lookback_period: int, is_ema_init: bool = True):
+        super(IndicatorLinear, self).__init__()
+        self.ma_layer = nn.Linear(lookback_period, 1, bias=False)
+        if is_ema_init: self.initialize_as_ema()
+        else: self.initialize_as_sma()
 
-        # Initialize with sensible SMA weights to give the model a good starting point
-        nn.init.constant_(self.slow_ma.weight, 1.0 / slow_period)
-        nn.init.constant_(self.fast_ma.weight, 1.0 / fast_period)
-        nn.init.constant_(self.signal_ma.weight, 1.0 / signal_period)
+    def initialize_as_sma(self):
+        with torch.no_grad(): self.ma_layer.weight.fill_(1.0 / self.ma_layer.in_features)
 
-        # A small head to process the final histogram into one signal value
-        self.head = nn.Linear(1, 1)
+    def initialize_as_ema(self):
+        period = self.ma_layer.in_features; alpha = 2.0 / (period + 1.0)
+        with torch.no_grad():
+            powers = torch.arange(period - 1, -1, -1, dtype=torch.float32); ema_weights = alpha * ((1 - alpha) ** powers)
+            ema_weights /= torch.sum(ema_weights); self.ma_layer.weight.data = ema_weights.unsqueeze(0)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x shape: (batch_size, lookback_period) -> add channel for conv
-        x = x.unsqueeze(1)
+    def forward(self, x: torch.Tensor) -> torch.Tensor: return self.ma_layer(x)
 
-        slow_line = self.slow_ma(x)
-        fast_line = self.fast_ma(x)
-        
-        # Align sequences by padding the shorter one (fast_line) to match the longer one's output
-        padding_size = slow_line.shape[-1] - fast_line.shape[-1]
-        # F.pad format is (pad_left, pad_right, pad_top, pad_bottom) for 4D
-        # For 3D conv output, it's just (pad_left, pad_right)
-        fast_line_padded = F.pad(fast_line, (padding_size, 0))
+# --- Learnable Indicator Cells ---
 
-        macd_line = fast_line_padded - slow_line
-        signal_line = self.signal_ma(macd_line)
-        
-        padding_size_signal = macd_line.shape[-1] - signal_line.shape[-1]
-        signal_line_padded = F.pad(signal_line, (padding_size_signal, 0))
+class LearnableMACDCell(nn.Module):
+    """Calculates a learnable MACD histogram value from a price series."""
+    def __init__(self, fast_period=12, slow_period=26, signal_period=9):
+        super(LearnableMACDCell, self).__init__()
+        self.fast_ma = IndicatorLinear(fast_period); self.slow_ma = IndicatorLinear(slow_period)
+        self.signal_ma = IndicatorLinear(signal_period); self.periods = {'fast': fast_period, 'slow': slow_period, 'signal': signal_period}
 
-        histogram = macd_line - signal_line_padded
+    def forward(self, price_series: torch.Tensor) -> torch.Tensor:
+        batch_size, device = price_series.shape[0], price_series.device
+        macd_line_history = torch.zeros(batch_size, self.periods['signal'], device=device)
+        for i in range(self.periods['signal']):
+            end_idx = price_series.shape[1] - i
+            fast_window = price_series[:, end_idx - self.periods['fast'] : end_idx]
+            slow_window = price_series[:, end_idx - self.periods['slow'] : end_idx]
+            macd_val = self.fast_ma(fast_window) - self.slow_ma(slow_window)
+            macd_line_history[:, -1 - i] = macd_val.squeeze(-1)
+        signal_line = self.signal_ma(macd_line_history); histogram = macd_line_history[:, -1].unsqueeze(1) - signal_line
+        return histogram
 
-        # Use the most recent histogram value as the primary feature
-        latest_histogram_value = histogram[:, :, -1]
-        
-        # tanh ensures the signal is bounded between -1 and 1
-        return torch.tanh(self.head(latest_histogram_value))
+class LearnableRSICell(nn.Module):
+    """Calculates a learnable RSI value from a price series."""
+    def __init__(self, rsi_period=14):
+        super(LearnableRSICell, self).__init__()
+        self.avg_gain = IndicatorLinear(rsi_period); self.avg_loss = IndicatorLinear(rsi_period); self.rsi_period = rsi_period
 
-class HierarchicalTIN(nn.Module):
-    """
-    The main "CEO" model. It combines signals from multiple specialist TINs
-    and explicit market context features to make a final trading decision.
-    """
+    def forward(self, price_series: torch.Tensor) -> torch.Tensor:
+        price_window = price_series[:, -self.rsi_period-1:]; diffs = price_window[:, 1:] - price_window[:, :-1]
+        gains = F.relu(diffs); losses = F.relu(-diffs)
+        avg_gain_val = self.avg_gain(gains); avg_loss_val = self.avg_loss(losses)
+        rs = avg_gain_val / (avg_loss_val + 1e-8); rsi = 100.0 - (100.0 / (1.0 + rs))
+        return rsi / 50.0 - 1.0 # Normalize to be roughly between -1 and 1
+
+# --- The Main Orchestrator Model ---
+
+class HybridMonolithicTIN(nn.Module):
+    """A singular agent containing multiple, learnable indicator cells."""
     def __init__(self):
-        super(HierarchicalTIN, self).__init__()
-        
-        self.cfg = SETTINGS.strategy
-        
-        # Create a dictionary of specialist models, one for each configured timeframe
-        self.specialists = nn.ModuleDict({
-            tf: LearnableMACD_TIN(lookback_period=period)
-            for tf, period in self.cfg.LOOKBACK_PERIODS.items()
-        })
-        
-        num_specialist_signals = len(self.cfg.LOOKBACK_PERIODS)
-        # Define the number of explicit context features we will provide
-        num_context_features = 2 # (bbw_1h_pct, price_dist_ma_4h)
-
-        decision_head_input_size = num_specialist_signals + num_context_features
-        
-        # The Decision Head: an informed "CEO" that receives a rich report
+        super(HybridMonolithicTIN, self).__init__()
+        print("--- Building Hybrid Monolithic TIN with Learnable Indicator Cells ---")
+        self.macd_cell = LearnableMACDCell()
+        self.rsi_cell = LearnableRSICell()
+        num_indicator_signals = 2 # (MACD histogram, RSI value)
         self.decision_head = nn.Sequential(
-            nn.Linear(decision_head_input_size, 128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64, self.cfg.ACTION_SPACE_SIZE) # Outputs Q-values for Hold, Buy, Sell
-        )
+            nn.Linear(num_indicator_signals, 64), nn.ReLU(),
+            nn.Linear(64, 32), nn.ReLU(),
+            nn.Linear(32, SETTINGS.strategy.ACTION_SPACE_SIZE))
 
-    def forward(self, state_dict: Dict[str, any]) -> torch.Tensor:
-        """
-        Args:
-            state_dict: A dictionary containing 'specialists' and 'context' tensors.
-        Returns:
-            A tensor of Q-values for each possible action.
-        """
-        specialist_states = state_dict['specialists']
-        context_features = state_dict['context']
-        
-        # Get signals from all specialists
-        signals = []
-        for tf, state_tensor in specialist_states.items():
-            # Ensure tensors are on the correct device
-            device = next(self.parameters()).device
-            state_tensor = state_tensor.to(device)
-            signal = self.specialists[tf](state_tensor)
-            signals.append(signal)
-            
-        combined_signals = torch.cat(signals, dim=1)
-        
-        # Create the final, enriched input vector for the "CEO"
-        final_input = torch.cat([combined_signals, context_features.to(combined_signals.device)], dim=1)
-        
-        return self.decision_head(final_input)
+    def forward(self, state_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
+        price_series = state_dict['price_1m']
+        macd_signal = self.macd_cell(price_series)
+        rsi_signal = self.rsi_cell(price_series)
+        indicator_vector = torch.cat([macd_signal, rsi_signal], dim=1)
+        return self.decision_head(indicator_vector)
