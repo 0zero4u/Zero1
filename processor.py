@@ -1,4 +1,3 @@
-
 #processor.py
 
 import os
@@ -88,7 +87,7 @@ def process_raw_trades(period_name: str):
             print(f"  -> ❌ FAILED. An unexpected error occurred: {e}")
 
 def create_bars_from_trades(period_name: str) -> pd.DataFrame:
-    """Loads processed trade data for a specific period and resamples it into bars."""
+    """Loads processed trade data for a specific period and resamples it into OHLC bars."""
     print(f"\n--- Preparing bar data for period: {period_name} ---")
     all_trade_files = get_files_for_period(period_name, "processed_trades")
 
@@ -99,7 +98,9 @@ def create_bars_from_trades(period_name: str) -> pd.DataFrame:
     for file_path in tqdm(all_trade_files, desc=f"Reading processed trade files for {period_name}"):
         df = pd.read_parquet(file_path, columns=['timestamp', 'price']).set_index('timestamp')
         resample_freq = SETTINGS.BASE_BAR_TIMEFRAME.replace('S', 's').replace('M', 'T')
-        all_ohlc.append(df['price'].resample(resample_freq).ohlc())
+        # Generate OHLC, not just 'close'
+        ohlc_df = df['price'].resample(resample_freq).ohlc()
+        all_ohlc.append(ohlc_df)
 
     if not all_ohlc:
         print("Warning: No bar data was generated.")
