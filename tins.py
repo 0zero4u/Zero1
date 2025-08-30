@@ -1,4 +1,5 @@
 
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,7 +8,7 @@ from gymnasium import spaces
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from .config import SETTINGS
 
-# --- Core Building Blocks & Learnable Cells (Unchanged) ---
+# --- Core Building Blocks & Learnable Cells (Unchanged part) ---
 class IndicatorLinear(nn.Module):
     def __init__(self, lookback_period: int, is_ema_init: bool = True):
         super(IndicatorLinear, self).__init__(); self.ma_layer = nn.Linear(lookback_period, 1, bias=False)
@@ -51,11 +52,36 @@ class LearnableATRCell(nn.Module):
     def __init__(self, atr_period=14):
         super(LearnableATRCell, self).__init__(); self.atr_period = atr_period; self.learnable_ema = IndicatorLinear(atr_period)
     def forward(self, ohlc_series: torch.Tensor) -> torch.Tensor:
+        # Note: This cell only uses O,H,L,C, so it's compatible with OHLCV input
         highs, lows, closes = ohlc_series[:, :, 1], ohlc_series[:, :, 2], ohlc_series[:, :, 3]
         prev_closes = torch.cat([closes[:, :1], closes[:, :-1]], dim=1)
         tr = torch.max(torch.max(highs - lows, torch.abs(highs - prev_closes)), torch.abs(lows - prev_closes))
         atr = self.learnable_ema(tr[:, -self.atr_period:])
         return atr / (closes[:, -1].unsqueeze(-1) + 1e-8)
+
+# --- NEW: Learnable VWAP Cell ---
+class LearnableVWAPCell(nn.Module):
+    def __init__(self, vwap_period=20):
+        super(LearnableVWAPCell, self).__init__()
+        self.vwap_period = vwap_period
+        self.num_ma = IndicatorLinear(vwap_period) # For Typical Price * Volume
+        self.den_ma = IndicatorLinear(vwap_period) # For Volume
+
+    def forward(self, ohlcv_series: torch.Tensor) -> torch.Tensor:
+        # ohlcv_series shape: (batch, lookback, 5) -> O,H,L,C,V
+        window = ohlcv_series[:, -self.vwap_period:]
+        highs, lows, closes, volumes = window[:, :, 1], window[:, :, 2], window[:, :, 3], window[:, :, 4]
+        
+        typical_price = (highs + lows + closes) / 3.0
+        tpv = typical_price * volumes
+        
+        vwap_num = self.num_ma(tpv)
+        vwap_den = self.den_ma(volumes)
+        vwap = vwap_num / (vwap_den + 1e-8)
+        
+        # Return a normalized signal: distance of current close from VWAP
+        current_close = closes[:, -1].unsqueeze(-1)
+        return (current_close - vwap) / (vwap + 1e-8)
 
 class LearnableBBandsCell(nn.Module):
     def __init__(self, bbands_period=20):
@@ -85,11 +111,19 @@ class MultiTimeframeFeatureExtractor(BaseFeaturesExtractor):
     head to produce a final feature vector for PPO's actor and critic networks.
     """
     def __init__(self, observation_space: spaces.Dict, lstm_hidden_size=64, lstm_layers=2):
-        # The output dimension of this extractor will be the LSTM hidden size
         super().__init__(observation_space, features_dim=lstm_hidden_size)
         print("--- Building Multi-Timeframe Feature Extractor for SB3 ---")
 
         # --- Instantiate Indicator Cells ---
+        # NEW: 1m Ultra-Short Term Cells
+        self.cell_1m_roc = LearnableROCCell(roc_period=14)
+        self.cell_1m_momentum = LearnableMACDCell(fast_period=8, slow_period=21, signal_period=5)
+        self.cell_1m_atr = LearnableATRCell(atr_period=20)
+        # NEW: 3m Primary Cells
+        self.cell_3m_vwap = LearnableVWAPCell(vwap_period=20)
+        self.cell_3m_atr = LearnableATRCell(atr_period=14)
+        
+        # Original Cells
         self.cell_5m_macd_fast = LearnableMACDCell(fast_period=6, slow_period=13, signal_period=5)
         self.cell_5m_macd_slow = LearnableMACDCell(fast_period=24, slow_period=52, signal_period=18)
         self.cell_5m_roc_fast = LearnableROCCell(roc_period=9)
@@ -101,7 +135,7 @@ class MultiTimeframeFeatureExtractor(BaseFeaturesExtractor):
         self.cell_1h_macd_slow = LearnableMACDCell(fast_period=24, slow_period=52, signal_period=18)
         
         # --- Define the Integration and LSTM Decision Head ---
-        num_indicator_signals = 9
+        num_indicator_signals = 14 # 9 original + 5 new
         num_context_features = SETTINGS.strategy.LOOKBACK_PERIODS['context']
         self.input_size = num_indicator_signals + num_context_features
         print(f"LSTM head input feature size per timestep: {self.input_size}")
@@ -114,18 +148,22 @@ class MultiTimeframeFeatureExtractor(BaseFeaturesExtractor):
         )
 
     def forward(self, observations: Dict[str, torch.Tensor]) -> torch.Tensor:
-        # observations is a dict of tensors with shape (Batch, Seq_Len, Lookback, [Channels])
-        batch_size, seq_len = observations['price_5m'].shape[0:2]
+        batch_size, seq_len = observations['price_1m'].shape[0:2]
         
         def process_sequence(cell, data_seq):
-            # data_seq has shape (Batch, Seq_Len, Lookback, [Channels])
-            # Reshape to (Batch * Seq_Len, Lookback, [Channels]) to process all timesteps at once
             data_flat = data_seq.reshape(batch_size * seq_len, *data_seq.shape[2:])
             signal_flat = cell(data_flat)
-            # Reshape back to (Batch, Seq_Len, 1)
             return signal_flat.view(batch_size, seq_len, 1)
 
-        # --- Get signal sequences from all cells in parallel ---
+        # --- Get signal sequences from all cells ---
+        # NEW: 1m and 3m signals
+        s_1m_roc_seq = process_sequence(self.cell_1m_roc, observations['price_1m'])
+        s_1m_momentum_seq = process_sequence(self.cell_1m_momentum, observations['price_1m'])
+        s_1m_atr_seq = process_sequence(self.cell_1m_atr, observations['ohlc_1m'])
+        s_3m_vwap_seq = process_sequence(self.cell_3m_vwap, observations['ohlc_3m'])
+        s_3m_atr_seq = process_sequence(self.cell_3m_atr, observations['ohlc_3m'])
+
+        # Original signals
         s_5m_macd_fast_seq = process_sequence(self.cell_5m_macd_fast, observations['price_5m'])
         s_5m_macd_slow_seq = process_sequence(self.cell_5m_macd_slow, observations['price_5m'])
         s_5m_roc_fast_seq = process_sequence(self.cell_5m_roc_fast, observations['price_5m'])
@@ -138,6 +176,10 @@ class MultiTimeframeFeatureExtractor(BaseFeaturesExtractor):
 
         # --- Integration Layer: Concatenate all signal and feature sequences ---
         final_input_sequence = torch.cat([
+            # New ultra-short signals first
+            s_1m_roc_seq, s_1m_momentum_seq, s_1m_atr_seq,
+            s_3m_vwap_seq, s_3m_atr_seq,
+            # Original signals
             s_5m_macd_fast_seq, s_5m_macd_slow_seq, s_5m_roc_fast_seq, s_5m_roc_slow_seq,
             s_15m_rsi_seq, s_15m_atr_seq, s_15m_bbands_seq,
             s_1h_macd_fast_seq, s_1h_macd_slow_seq,
@@ -145,5 +187,4 @@ class MultiTimeframeFeatureExtractor(BaseFeaturesExtractor):
         ], dim=2)
         
         lstm_out, _ = self.lstm(final_input_sequence)
-        # Return the output of the last time step, which is the feature vector
         return lstm_out[:, -1, :]
