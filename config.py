@@ -1,3 +1,4 @@
+
 import os
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -11,10 +12,19 @@ class StrategyConfig:
     """Configuration for the Multi-Timeframe Hybrid TIN."""
     # Define the lookback window (in bars) for each required input series.
     LOOKBACK_PERIODS: Dict[str, int] = field(default_factory=lambda: {
+        # --- NEW: Ultra-Short Term Tactical Layer ---
+        'price_1m': 80,    # For momentum/flow analysis (ROC, MACD)
+        'ohlc_1m': 50,     # For volatility analysis (ATR)
+        'price_3m': 80,    # For VWAP signal generation
+        'ohlc_3m': 50,     # For trend/value analysis (VWAP, ATR)
+
+        # --- Original Tactical & Short-Term Layers ---
         'price_5m': 70,    # For tactical cells (fast/slow MACD, fast/slow ROC)
         'price_15m': 50,   # For short-term cells (RSI, BBands %B)
         'ohlc_15m': 50,    # For volatility cells (ATR)
         'price_1h': 70,    # For strategic cells (fast/slow MACD)
+        
+        # --- Context Layer (Unchanged) ---
         'context': 4,      # Context vector: volatility, trend, dist_to_support, dist_to_resistance
     })
     # Defines how many past time steps the LSTM will look at for each decision.
@@ -54,8 +64,8 @@ class GlobalConfig:
     OUT_OF_SAMPLE_START: datetime = datetime(2025, 6, 1); OUT_OF_SAMPLE_END: datetime = datetime(2025, 7, 31)
 
     # --- Base bar data for environment ---
-    # The environment's "heartbeat" is 15 minutes.
-    BASE_BAR_TIMEFRAME: str = "15T"
+    # NEW: The environment's "heartbeat" is now 1 minute to support 1m and 3m analysis.
+    BASE_BAR_TIMEFRAME: str = "1T"
 
     # --- Trading Simulation ---
     # Realistic transaction fee (e.g., 0.001 for 0.1%) applied to every trade.
