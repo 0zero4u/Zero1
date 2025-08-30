@@ -1,8 +1,9 @@
-# Zero1-main/generator.py
+
 
 import pandas as pd
 import numpy as np
 from stable_baselines3 import PPO
+import json # Import json for pretty printing
 
 from ..processor import create_bars_from_trades
 from .config import SETTINGS
@@ -10,10 +11,9 @@ from .engine import HierarchicalTradingEnvironment
 
 def run_backtest():
     cfg = SETTINGS
-    print(f"--- Starting Out-of-Sample Backtest for PPO Hybrid TIN ---")
+    print(f"--- Starting Out-of-Sample Backtest for Hierarchical Attention TIN ---")
     
     # 1. Prepare Out-of-Sample Data and Environment
-    # Note: Using create_bars_from_trades, which is more robust than create_feature_dataframe
     bars_df = create_bars_from_trades("out_of_sample")
     env = HierarchicalTradingEnvironment(bars_df)
     
@@ -24,16 +24,43 @@ def run_backtest():
 
     obs, info = env.reset()
     done = False
-    portfolio_values = [info['balance']] # Start with initial balance
+    portfolio_values = [info['balance']]
     initial_value = portfolio_values[0]
+    step_count = 0
 
     print("Running simulation...")
     while not done:
         action, _states = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
-
+        step_count += 1
         portfolio_values.append(info['portfolio_value'])
+
+        ### --- GREY BOX CHANGE 3: EXTRACT AND DISPLAY REASONING --- ###
+        # Display the "Chief Strategist" reasoning every 100 steps
+        if step_count % 100 == 0:
+            # Access the stored weights from the feature extractor
+            # It's a numpy array of shape (1, 4) because batch size is 1 during prediction
+            weights = model.policy.features_extractor.last_attention_weights[0]
+            
+            # Format the weights into a readable JSON-like dictionary
+            reasoning_payload = {
+                "Timestep": env.current_step,
+                "Chief_Strategist_Decision": {
+                    "Action_Signal": float(action[0]), # Position signal from -1 to 1
+                    "Action_Aggression": float(action[1]), # Sizing from 0 to 1
+                    "Composition_Score_Route": {
+                        "Weight_on_Flow_Factors": f"{weights[0]:.2%}",
+                        "Weight_on_Volatility_Factors": f"{weights[1]:.2%}",
+                        "Weight_on_Value_Trend_Factors": f"{weights[2]:.2%}",
+                        "Weight_on_Context_Factors": f"{weights[3]:.2%}"
+                    }
+                }
+            }
+            print("\n" + "="*20 + " Model Reasoning " + "="*20)
+            print(json.dumps(reasoning_payload, indent=2))
+            print("="*57)
+
 
     # 3. Calculate and Print Performance Metrics
     if not portfolio_values or len(portfolio_values) < 2:
@@ -46,7 +73,6 @@ def run_backtest():
     
     sharpe_ratio = 0.0
     if not returns.empty and returns.std() != 0:
-        # Base timeframe is 15T, so 96 bars per day
         bars_per_day = 24 * (60 // int(cfg.BASE_BAR_TIMEFRAME[:-1]))
         annualization_factor = np.sqrt(252 * bars_per_day)
         sharpe_ratio = (returns.mean() / returns.std()) * annualization_factor
