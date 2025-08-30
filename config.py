@@ -1,4 +1,3 @@
-
 import os
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -7,48 +6,66 @@ import torch
 
 # --- TRADING STRATEGY CONFIGURATION (Multi-Timeframe Hybrid TIN) ---
 
+### --- REFINEMENT --- ###
+# New configuration class for the model's architecture, inspired by the hierarchical concept.
+@dataclass(frozen=True)
+class ModelArchitectureConfig:
+    """Configuration for the Hierarchical Attention Model structure."""
+    LSTM_LAYERS: int = 2
+    # Hidden size for the final LSTM head in the original model
+    LSTM_GLOBAL_HIDDEN_SIZE: int = 64
+    # Hidden size for the specialized LSTMs in the new hierarchical model
+    EXPERT_LSTM_HIDDEN_SIZE: int = 32
+    # The final feature dimension produced by the attention mechanism
+    ATTENTION_HEAD_FEATURES: int = 64
+
 @dataclass(frozen=True)
 class StrategyConfig:
     """Configuration for the Multi-Timeframe Hybrid TIN."""
     # Define the lookback window (in bars) for each required input series.
     LOOKBACK_PERIODS: Dict[str, int] = field(default_factory=lambda: {
-        # --- NEW: Ultra-Short Term Tactical Layer ---
-        'price_1m': 80,    # For momentum/flow analysis (ROC, MACD)
-        'ohlc_1m': 50,     # For volatility analysis (ATR)
-        'price_3m': 80,    # For VWAP signal generation
-        'ohlc_3m': 50,     # For trend/value analysis (VWAP, ATR)
+        # --- Ultra-Short Term Tactical Layer ---
+        'price_1m': 80,
+        'ohlc_1m': 50,
+        'price_3m': 80,
+        ### --- REFINEMENT --- ###
+        # Explicitly require OHLCV for the VWAP calculation.
+        'ohlcv_3m': 50,
 
         # --- Original Tactical & Short-Term Layers ---
-        'price_5m': 70,    # For tactical cells (fast/slow MACD, fast/slow ROC)
-        'price_15m': 50,   # For short-term cells (RSI, BBands %B)
-        'ohlc_15m': 50,    # For volatility cells (ATR)
-        'price_1h': 70,    # For strategic cells (fast/slow MACD)
-        
-        # --- Context Layer (Unchanged) ---
-        'context': 4,      # Context vector: volatility, trend, dist_to_support, dist_to_resistance
+        'price_5m': 70,
+        'price_15m': 50,
+        'ohlc_15m': 50,
+        'price_1h': 70,
+
+        ### --- REFINEMENT --- ###
+        # Context vector now includes funding rate.
+        'context': 5,      # Context: volatility, trend, dist_support, dist_resistance, funding_rate
     })
     # Defines how many past time steps the LSTM will look at for each decision.
     SEQUENCE_LENGTH: int = 10
-    # ACTION_SPACE_SIZE is removed as the action space is now a continuous Box space
-    # defined directly in the environment for more nuanced control.
+
+    # Sub-configuration for model architecture
+    architecture: ModelArchitectureConfig = field(default_factory=ModelArchitectureConfig)
+
 
 # --- MODEL TRAINING CONFIGURATION (Stable-Baselines3 PPO) ---
 
 @dataclass(frozen=True)
 class PPOTrainingConfig:
     """Configuration for the Proximal Policy Optimization (PPO) training process."""
-    MODEL_OUTPUT_FILE: str = "ppo_multi_timeframe_hybrid_tin.zip"
+    MODEL_OUTPUT_FILE: str = "ppo_hierarchical_attention_tin.zip" # New model name
 
     # --- PPO Hyperparameters ---
-    TOTAL_TIMESTEPS: int = 200_000 # Total steps for the entire training process
-    N_STEPS: int = 2048          # (Rollout Buffer Size) Steps collected per agent per update
-    BATCH_SIZE: int = 64           # Mini-batch size for PPO updates
-    N_EPOCHS: int = 10             # Number of optimization epochs per update
-    GAMMA: float = 0.99            # Discount factor
-    GAE_LAMBDA: float = 0.95       # Factor for Generalized Advantage Estimation
-    CLIP_RANGE: float = 0.2        # Clipping parameter for PPO
-    ENT_COEF: float = 0.01         # Entropy coefficient for exploration
-    LEARNING_RATE: float = 3e-4    # Learning rate for the optimizer
+    TOTAL_TIMESTEPS: int = 200_000
+    N_STEPS: int = 2048
+    BATCH_SIZE: int = 64
+    N_EPOCHS: int = 10
+    GAMMA: float = 0.99
+    GAE_LAMBDA: float = 0.95
+    CLIP_RANGE: float = 0.2
+    ENT_COEF: float = 0.01
+    LEARNING_RATE: float = 3e-4
 
 # --- GLOBAL SYSTEM & DATA CONFIGURATION ---
 
@@ -64,12 +81,9 @@ class GlobalConfig:
     OUT_OF_SAMPLE_START: datetime = datetime(2025, 6, 1); OUT_OF_SAMPLE_END: datetime = datetime(2025, 7, 31)
 
     # --- Base bar data for environment ---
-    # NEW: The environment's "heartbeat" is now 1 minute to support 1m and 3m analysis.
     BASE_BAR_TIMEFRAME: str = "1T"
 
     # --- Trading Simulation ---
-    # Realistic transaction fee (e.g., 0.001 for 0.1%) applied to every trade.
-    # This is critical for preventing the agent from learning to over-trade.
     TRANSACTION_FEE_PCT: float = 0.001
 
     # --- Data Schema Attributes ---
