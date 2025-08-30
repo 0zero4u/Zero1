@@ -19,8 +19,8 @@ class StrategyConfig:
     })
     # Defines how many past time steps the LSTM will look at for each decision.
     SEQUENCE_LENGTH: int = 10
-    # The number of actions the agent can take. Now updated to 7.
-    ACTION_SPACE_SIZE: int = 7
+    # ACTION_SPACE_SIZE is removed as the action space is now a continuous Box space
+    # defined directly in the environment for more nuanced control.
 
 # --- MODEL TRAINING CONFIGURATION (Stable-Baselines3 PPO) ---
 
@@ -56,6 +56,11 @@ class GlobalConfig:
     # --- Base bar data for environment ---
     # The environment's "heartbeat" is 15 minutes.
     BASE_BAR_TIMEFRAME: str = "15T"
+
+    # --- Trading Simulation ---
+    # Realistic transaction fee (e.g., 0.001 for 0.1%) applied to every trade.
+    # This is critical for preventing the agent from learning to over-trade.
+    TRANSACTION_FEE_PCT: float = 0.001
 
     # --- Data Schema Attributes ---
     BINANCE_RAW_COLUMNS: List[str] = field(default_factory=lambda: ['id', 'price', 'qty', 'quoteQty', 'time', 'is_buyer_maker'])
