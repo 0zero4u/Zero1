@@ -4,32 +4,26 @@ from stable_baselines3.common.env_checker import check_env
 
 from ..processor import create_bars_from_trades
 from .config import SETTINGS
-from .tins import MultiTimeframeFeatureExtractor
+from .tins import HierarchicalAttentionFeatureExtractor # Use the new extractor
 from .engine import HierarchicalTradingEnvironment
 
 def train_model():
     cfg = SETTINGS
     train_cfg = cfg.training
-    print(f"--- Starting Hybrid TIN Model Training with SB3 PPO on {cfg.DEVICE} ---")
+    print(f"--- Starting Hierarchical TIN Model Training with SB3 PPO on {cfg.DEVICE} ---")
 
     # 1. Create the Environment
     bars_df = create_bars_from_trades("in_sample")
     env = HierarchicalTradingEnvironment(bars_df)
-    # Optional: Check if the custom environment is compliant
-    # check_env(env) 
-    # print("✅ Environment check passed.")
+    # check_env(env) # Optional check
 
-    # 2. Define the Custom Policy
-    # "MlpPolicy" is used, but its feature extractor will be replaced by our custom one.
-    # SB3 will automatically attach Actor and Critic heads to our extracted features.
+    # 2. Define the Custom Policy using the new Hierarchical Extractor
     policy_kwargs = dict(
-        features_extractor_class=MultiTimeframeFeatureExtractor,
+        features_extractor_class=HierarchicalAttentionFeatureExtractor,
         features_extractor_kwargs=dict(
-            lstm_hidden_size=64, # Can pass arguments to the extractor here
-            lstm_layers=2
+            arch_cfg=cfg.strategy.architecture # Pass the architecture config
         ),
-        # PPO's actor-critic network architecture after feature extraction
-        net_arch=dict(pi=[128, 64], vf=[128, 64]) 
+        net_arch=dict(pi=[128, 64], vf=[128, 64])
     )
 
     # 3. Instantiate the PPO Agent
@@ -51,9 +45,9 @@ def train_model():
     )
 
     # 4. Train the Agent
-    print("--- Starting PPO Training ---")
+    print("--- Starting PPO Training on Hierarchical Model ---")
     model.learn(total_timesteps=train_cfg.TOTAL_TIMESTEPS, progress_bar=True)
-    
+
     # 5. Save the Trained Model
     model_path = cfg.get_model_path()
     model.save(model_path)
