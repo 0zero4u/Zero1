@@ -17,23 +17,28 @@ class StrategyConfig:
         'price_1h': 70,    # For strategic cells (fast/slow MACD)
         'context': 4,      # Context vector: volatility, trend, dist_to_support, dist_to_resistance
     })
+    # Defines how many past time steps the LSTM will look at for each decision.
+    SEQUENCE_LENGTH: int = 10
     # The number of actions the agent can take. Now updated to 7.
     ACTION_SPACE_SIZE: int = 7
 
-# --- MODEL TRAINING CONFIGURATION (Reinforcement Learning) ---
+# --- MODEL TRAINING CONFIGURATION (Stable-Baselines3 PPO) ---
 
 @dataclass(frozen=True)
-class RLTrainingConfig:
-    """Configuration for the Deep Q-Network (DQN) training process."""
-    MODEL_OUTPUT_FILE: str = "multi_timeframe_hybrid_tin.pth"
+class PPOTrainingConfig:
+    """Configuration for the Proximal Policy Optimization (PPO) training process."""
+    MODEL_OUTPUT_FILE: str = "ppo_multi_timeframe_hybrid_tin.zip"
 
-    # --- RL Hyperparameters ---
-    NUM_EPISODES: int = 50; BATCH_SIZE: int = 128; GAMMA: float = 0.99
-    EPS_START: float = 0.9; EPS_END: float = 0.05; EPS_DECAY: int = 20000
-    TAU: float = 0.005; LEARNING_RATE: float = 1e-4
-
-    # --- Replay Memory ---
-    MEMORY_SIZE: int = 50000
+    # --- PPO Hyperparameters ---
+    TOTAL_TIMESTEPS: int = 200_000 # Total steps for the entire training process
+    N_STEPS: int = 2048          # (Rollout Buffer Size) Steps collected per agent per update
+    BATCH_SIZE: int = 64           # Mini-batch size for PPO updates
+    N_EPOCHS: int = 10             # Number of optimization epochs per update
+    GAMMA: float = 0.99            # Discount factor
+    GAE_LAMBDA: float = 0.95       # Factor for Generalized Advantage Estimation
+    CLIP_RANGE: float = 0.2        # Clipping parameter for PPO
+    ENT_COEF: float = 0.01         # Entropy coefficient for exploration
+    LEARNING_RATE: float = 3e-4    # Learning rate for the optimizer
 
 # --- GLOBAL SYSTEM & DATA CONFIGURATION ---
 
@@ -58,7 +63,7 @@ class GlobalConfig:
     DTYPE_MAP: Dict[str, str] = field(default_factory=lambda: {'id': 'int64', 'price': 'float64', 'qty': 'float64', 'quoteQty': 'float64', 'time': 'int64', 'is_buyer_maker': 'bool'})
 
     # --- Sub-configurations ---
-    strategy: StrategyConfig = field(default_factory=StrategyConfig); training: RLTrainingConfig = field(default_factory=RLTrainingConfig)
+    strategy: StrategyConfig = field(default_factory=StrategyConfig); training: PPOTrainingConfig = field(default_factory=PPOTrainingConfig)
 
     # --- Directory Methods ---
     def get_processed_trades_path(self, period_name: str) -> str: return os.path.join(self.BASE_PATH, period_name, "processed", "trades")
