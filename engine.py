@@ -11,6 +11,7 @@ class HierarchicalTradingEnvironment(gym.Env):
     for the trading agent. It manages multiple resampled dataframes and pre-computes
     market context features to create a rich state representation at each step.
     The observation is a sequence of past states, designed for an LSTM-based policy.
+    This version uses a continuous, 2D action space and incorporates transaction costs.
     """
     def __init__(self, df_base_ohlc: pd.DataFrame):
         super().__init__()
@@ -40,7 +41,14 @@ class HierarchicalTradingEnvironment(gym.Env):
         self.max_step = len(self.base_timestamps) - 2 # Safety margin
         
         # --- Define Gym Spaces ---
-        self.action_space = spaces.Discrete(self.strat_cfg.ACTION_SPACE_SIZE)
+        # ACTION SPACE: 2D Box for continuous, nuanced control. This is the core of the new design.
+        # Dim 1: Position signal (-1 to +1). Negative means "close longs", positive means "open/hold longs".
+        # Dim 2: Aggression/Sizing (0 to 1). How strongly to act on the signal.
+        self.action_space = spaces.Box(
+            low=np.array([-1.0, 0.0]),
+            high=np.array([1.0, 1.0]),
+            dtype=np.float32
+        )
         
         obs_spaces = {}
         seq_len = self.strat_cfg.SEQUENCE_LENGTH
@@ -140,30 +148,56 @@ class HierarchicalTradingEnvironment(gym.Env):
             self.observation_history.append(self._get_single_step_observation(step_idx))
             
         observation = self._get_observation_sequence()
-        info = {'balance': self.balance, 'asset_held': self.asset_held}
+        info = {'balance': self.balance, 'asset_held': self.asset_held, 'portfolio_value': self.balance}
         return observation, info
 
-    def step(self, action: int):
+    def step(self, action: np.ndarray):
+        # 1. Get Current State & Portfolio Value
         current_price = self.timeframes[self.cfg.BASE_BAR_TIMEFRAME]['close'].iloc[self.current_step]
         initial_portfolio_value = self.balance + self.asset_held * current_price
 
-        # --- Execute Action ---
-        if action == 6 and self.balance > 10: self.asset_held += (self.balance * 0.999) / current_price; self.balance = 0
-        elif action == 5 and self.balance > 10: self.asset_held += (self.balance * 0.75 * 0.999) / current_price; self.balance *= 0.25
-        elif action == 4 and self.balance > 10: self.asset_held += (self.balance * 0.5 * 0.999) / current_price; self.balance *= 0.5
-        elif action == 0 and self.asset_held > 0: self.balance += (self.asset_held * current_price) * 0.999; self.asset_held = 0
-        elif action == 1 and self.asset_held > 0: self.balance += (self.asset_held * 0.75 * current_price) * 0.999; self.asset_held *= 0.25
-        elif action == 2 and self.asset_held > 0: self.balance += (self.asset_held * 0.5 * current_price) * 0.999; self.asset_held *= 0.5
+        # 2. Decode Action and Determine Target Position
+        # For this long-only environment, negative direction signal maps to 0% allocation (full cash).
+        target_asset_allocation_pct = max(0, action[0]) * action[1]
+        target_asset_value = initial_portfolio_value * target_asset_allocation_pct
+        current_asset_value = self.asset_held * current_price
+        
+        # 3. Calculate Trade and Apply Fees
+        trade_value_usd = target_asset_value - current_asset_value
+        
+        # A small dead zone (~$1) prevents fee-burning from near-zero "tweaks".
+        if trade_value_usd > 1: # Buy logic
+            amount_to_spend = min(trade_value_usd, self.balance)
+            if amount_to_spend > 0:
+                fee = amount_to_spend * self.cfg.TRANSACTION_FEE_PCT
+                asset_to_buy = (amount_to_spend - fee) / current_price
+                self.balance -= amount_to_spend
+                self.asset_held += asset_to_buy
 
+        elif trade_value_usd < -1: # Sell logic
+            amount_to_sell_usd = -trade_value_usd
+            asset_to_sell = min(amount_to_sell_usd / current_price, self.asset_held)
+            if asset_to_sell > 0:
+                proceeds = asset_to_sell * current_price
+                fee = proceeds * self.cfg.TRANSACTION_FEE_PCT
+                self.asset_held -= asset_to_sell
+                self.balance += (proceeds - fee)
+
+        # 4. Update State and Calculate Reward
         self.current_step += 1
         truncated = self.current_step >= self.max_step
-        terminated = self.balance <= 1000 and self.asset_held * current_price < 10 # Bankrupt condition
-
+        
         next_price = self.timeframes[self.cfg.BASE_BAR_TIMEFRAME]['close'].iloc[self.current_step]
         next_portfolio_value = self.balance + self.asset_held * next_price
+        
+        # Bankruptcy condition
+        terminated = next_portfolio_value <= 1000
+        
+        # Reward is the change in portfolio value. Fees are implicitly included
+        # as they reduce balance/assets, thus reducing next_portfolio_value.
         reward = next_portfolio_value - initial_portfolio_value
         
-        # Update observation history and get next state
+        # 5. Prepare Next Observation
         self.observation_history.append(self._get_single_step_observation(self.current_step))
         observation = self._get_observation_sequence()
         info = {'balance': self.balance, 'asset_held': self.asset_held, 'portfolio_value': next_portfolio_value}
