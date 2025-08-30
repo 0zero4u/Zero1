@@ -1,60 +1,59 @@
 # Zero1-main/generator.py
 
 import pandas as pd
-import torch
 import numpy as np
+from stable_baselines3 import PPO
 
-from ..processor import create_feature_dataframe
+from ..processor import create_bars_from_trades
 from .config import SETTINGS
-from .tins import HybridMonolithicTIN
-from .engine import TradingEnvironment
+from .engine import HierarchicalTradingEnvironment
 
 def run_backtest():
     cfg = SETTINGS
-    print(f"--- Starting Out-of-Sample Backtest for Hybrid Monolithic TIN ---")
+    print(f"--- Starting Out-of-Sample Backtest for PPO Hybrid TIN ---")
     
-    # 1. Load Model
+    # 1. Prepare Out-of-Sample Data and Environment
+    # Note: Using create_bars_from_trades, which is more robust than create_feature_dataframe
+    bars_df = create_bars_from_trades("out_of_sample")
+    env = HierarchicalTradingEnvironment(bars_df)
+    
+    # 2. Load Model
     model_path = cfg.get_model_path()
-    model = HybridMonolithicTIN().to(cfg.DEVICE)
-    model.load_state_dict(torch.load(model_path, map_location=cfg.DEVICE))
-    model.eval()
-    print(f"Loaded trained model from: {model_path}")
+    model = PPO.load(model_path, env=env)
+    print(f"Loaded trained SB3 PPO model from: {model_path}")
 
-    # 2. Prepare Out-of-Sample Data and Environment
-    feature_df = create_feature_dataframe("out_of_sample")
-    env = TradingEnvironment(feature_df)
-    
-    state = env.reset(); done = False
-    portfolio_values = []; initial_value = env.balance
+    obs, info = env.reset()
+    done = False
+    portfolio_values = [info['balance']] # Start with initial balance
+    initial_value = portfolio_values[0]
 
     print("Running simulation...")
     while not done:
-        with torch.no_grad():
-            batched_state = {key: val.unsqueeze(0) for key, val in state.items()}
-            action = model(batched_state).max(1)[1].view(1, 1)
-        
-        state, _, done = env.step(action.item())
-        if done: break
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
 
-        current_price = env.features_df['price_1m'].iloc[env.current_step]
-        current_value = env.balance + env.asset_held * current_price
-        portfolio_values.append(current_value)
+        portfolio_values.append(info['portfolio_value'])
 
     # 3. Calculate and Print Performance Metrics
-    if not portfolio_values:
+    if not portfolio_values or len(portfolio_values) < 2:
         print("\n--- Backtest Warning: No simulation steps were taken. ---")
         return
 
-    final_value = portfolio_values[-1]; total_return_pct = (final_value / initial_value - 1) * 100
+    final_value = portfolio_values[-1]
+    total_return_pct = (final_value / initial_value - 1) * 100
     returns = pd.Series(portfolio_values).pct_change().dropna()
     
     sharpe_ratio = 0.0
     if not returns.empty and returns.std() != 0:
-        bars_per_day = 24 * 60
+        # Base timeframe is 15T, so 96 bars per day
+        bars_per_day = 24 * (60 // int(cfg.BASE_BAR_TIMEFRAME[:-1]))
         annualization_factor = np.sqrt(252 * bars_per_day)
         sharpe_ratio = (returns.mean() / returns.std()) * annualization_factor
 
     print("\n--- Backtest Results ---")
-    print(f"Final Portfolio Value: ${final_value:,.2f}"); print(f"Initial Portfolio Value: ${initial_value:,.2f}")
-    print(f"Total Return: {total_return_pct:.2f}%"); print(f"Annualized Sharpe Ratio: {sharpe_ratio:.2f}")
+    print(f"Final Portfolio Value: ${final_value:,.2f}")
+    print(f"Initial Portfolio Value: ${initial_value:,.2f}")
+    print(f"Total Return: {total_return_pct:.2f}%")
+    print(f"Annualized Sharpe Ratio: {sharpe_ratio:.2f}")
     print("✅ Backtest complete.")
