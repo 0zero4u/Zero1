@@ -1,3 +1,5 @@
+
+
 #processor.py
 
 import os
@@ -87,26 +89,32 @@ def process_raw_trades(period_name: str):
             print(f"  -> ❌ FAILED. An unexpected error occurred: {e}")
 
 def create_bars_from_trades(period_name: str) -> pd.DataFrame:
-    """Loads processed trade data for a specific period and resamples it into OHLC bars."""
+    """Loads processed trade data and resamples it into OHLCV bars at the base timeframe."""
     print(f"\n--- Preparing bar data for period: {period_name} ---")
     all_trade_files = get_files_for_period(period_name, "processed_trades")
 
     if not all_trade_files:
         raise FileNotFoundError(f"No processed trade files found for period '{period_name}'. Cannot generate bars.")
 
-    all_ohlc = []
+    all_ohlcv = []
     for file_path in tqdm(all_trade_files, desc=f"Reading processed trade files for {period_name}"):
-        df = pd.read_parquet(file_path, columns=['timestamp', 'price']).set_index('timestamp')
-        resample_freq = SETTINGS.BASE_BAR_TIMEFRAME.replace('S', 's').replace('M', 'T')
-        # Generate OHLC, not just 'close'
-        ohlc_df = df['price'].resample(resample_freq).ohlc()
-        all_ohlc.append(ohlc_df)
+        # NEW: Read 'size' for volume and use more robust aggregation
+        df = pd.read_parquet(file_path, columns=['timestamp', 'price', 'size']).set_index('timestamp')
+        resample_freq = SETTINGS.BASE_BAR_TIMEFRAME
+        
+        # NEW: Aggregate to create OHLC and sum volume
+        agg_dict = {'price': 'ohlc', 'size': 'sum'}
+        ohlcv_df = df.resample(resample_freq).agg(agg_dict)
+        all_ohlcv.append(ohlcv_df)
 
-    if not all_ohlc:
+    if not all_ohlcv:
         print("Warning: No bar data was generated.")
         return pd.DataFrame()
 
-    bars_df = pd.concat(all_ohlc).sort_index().dropna()
+    bars_df = pd.concat(all_ohlcv).sort_index()
+    # NEW: Flatten the MultiIndex columns from the .agg() call
+    bars_df.columns = ['open', 'high', 'low', 'close', 'volume']
+    bars_df.dropna(inplace=True)
     
     print(f"Prepared {len(bars_df):,} bars from {bars_df.index.min()} to {bars_df.index.max()}")
     return bars_df.reset_index()
