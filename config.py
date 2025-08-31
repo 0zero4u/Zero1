@@ -253,7 +253,7 @@ class GlobalConfig(BaseModel):
 
     # Data schema
     binance_raw_columns: List[str] = Field(
-        default_factory=lambda: ['id', 'price', 'qty', 'quoteQty', 'time', 'is_buyer_maker']
+        default_factory=lambda: ['id', 'price', 'qty', 'quote_qty', 'time', 'is_buyer_maker']
     )
 
     final_columns: List[str] = Field(
@@ -263,7 +263,7 @@ class GlobalConfig(BaseModel):
     dtype_map: Dict[str, str] = Field(
         default_factory=lambda: {
             'id': 'int64', 'price': 'float64', 'qty': 'float64',
-            'quoteQty': 'float64', 'time': 'int64', 'is_buyer_maker': 'bool'
+            'quote_qty': 'float64', 'time': 'int64', 'is_buyer_maker': 'bool'
         }
     )
 
