@@ -19,7 +19,7 @@ from stable_baselines3.common.utils import set_random_seed
 
 from ..processor import create_bars_from_trades
 from .config import SETTINGS, create_config, Environment
-from .enhanced_tins import EnhancedHierarchicalAttentionFeatureExtractor
+from .tins import EnhancedHierarchicalAttentionFeatureExtractor
 from .engine import HierarchicalTradingEnvironment
 
 # --- ADVANCED CALLBACKS FOR MONITORING ---
