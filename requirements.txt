@@ -1,0 +1,39 @@
+# Core ML and RL Dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+stable-baselines3>=2.0.0
+gymnasium>=0.29.0
+
+# Data Processing and Analysis
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+pyarrow>=12.0.0
+
+# Visualization and Plotting
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.14.0
+
+# Configuration and Environment
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+
+# Hyperparameter Optimization
+optuna>=3.2.0
+
+# Experiment Tracking (Optional)
+wandb>=0.15.0
+tensorboard>=2.13.0
+
+# Progress Bars and UI
+tqdm>=4.65.0
+
+# Optional Performance Enhancements
+dask[dataframe]>=2023.5.0  # Optional, for large-scale data processing
+numba>=0.57.0              # Optional, for numerical acceleration
+
+# Development and Testing (Optional)
+pytest>=7.0.0
+black>=23.0.0
+flake8>=6.0.0
