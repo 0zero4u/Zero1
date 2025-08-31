@@ -1,11 +1,3 @@
-# =========================================================================================
-# FINAL CORRECTED VERSION of tins.py
-#
-# This file fixes the critical bug where the model was fed random noise instead of
-# real technical indicator values. It implements the full logic for each indicator
-# and includes the 'get_attention_analysis' method for model interpretability.
-# This is a drop-in replacement.
-# =========================================================================================
 
 import torch
 import torch.nn as nn
