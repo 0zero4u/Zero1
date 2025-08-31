@@ -1,8 +1,4 @@
-# Enhanced Backtesting and Analysis System
 
-## Improved Generator.py with Advanced Analytics
-
-```python
 import pandas as pd
 import numpy as np
 from stable_baselines3 import PPO
