@@ -333,7 +333,7 @@ class HierarchicalTradingEnvironment(gym.Env):
             super().reset(seed=seed)
 
             # Initialize portfolio state
-            self.balance = 10000.0  # Total account equity
+            self.balance = 50000.0  # Total account equity
             self.asset_held = 0.0
 
             # State variables for isolated margin trading
