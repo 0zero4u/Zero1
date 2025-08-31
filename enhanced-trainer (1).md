@@ -1,8 +1,4 @@
-# Enhanced Training System with Hyperparameter Optimization
 
-## Improved Trainer.py with Advanced Features
-
-```python
 import torch
 import optuna
 import wandb
@@ -639,36 +635,3 @@ if __name__ == "__main__":
         use_wandb=True,
         use_ensemble=False
     )
-```
-
-## Key Training Improvements:
-
-### 1. **Hyperparameter Optimization**
-- Optuna integration with Tree-structured Parzen Estimator (TPE)
-- Automatic pruning of unpromising trials
-- Comprehensive parameter search spaces
-- Bayesian optimization for efficient search
-
-### 2. **Advanced Monitoring**
-- Weights & Biases integration for experiment tracking
-- Attention pattern analysis and logging
-- Performance monitoring with alerts
-- Real-time drawdown and portfolio tracking
-
-### 3. **Training Stability**
-- Early stopping based on validation performance
-- Learning rate scheduling support
-- Gradient clipping and regularization
-- Automatic checkpointing
-
-### 4. **Ensemble Methods**
-- Multi-agent training with diverse configurations
-- Different random seeds for model diversity
-- Ensemble voting and averaging strategies
-- Uncertainty quantification
-
-### 5. **Production Ready**
-- Environment-specific configurations
-- Comprehensive logging and monitoring
-- Error handling and recovery
-- Automated model versioning and deployment
