@@ -1,8 +1,4 @@
-# Enhanced Neural Network Architecture with Modern Techniques
 
-## Improved TINS.py with Advanced Features
-
-```python
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -659,46 +655,3 @@ __all__ = [
     'MultiHeadSelfAttention',
     'PositionalEncoding'
 ]
-```
-
-## Key Architectural Improvements:
-
-### 1. **Modern Attention Mechanisms**
-- Multi-head self-attention for enhanced pattern recognition
-- Positional encoding for time series data
-- Cross-attention between expert heads
-- Temperature-scaled attention weights
-
-### 2. **Advanced Regularization**
-- Spectral normalization for training stability
-- Layer normalization and batch normalization
-- Adaptive dropout rates
-- Residual connections throughout
-
-### 3. **Market Regime Detection**
-- Mixture of experts approach for different market conditions
-- Automatic regime classification (bull/bear/sideways)
-- Regime-specific feature transformations
-
-### 4. **Enhanced Technical Indicators**
-- Learnable initialization strategies (SMA, EMA, linear decay)
-- Attention-enhanced MACD calculations
-- Adaptive gating mechanisms
-- Volume-weighted analysis
-
-### 5. **Interpretability Features**
-- Attention weight analysis for decision transparency
-- Market regime probability tracking
-- Expert contribution analysis
-- Uncertainty quantification
-
-### 6. **Ensemble Methods**
-- Multiple model ensemble for robustness
-- Uncertainty estimation capabilities
-- Model diversity for better generalization
-
-### 7. **Training Stability**
-- Proper weight initialization (Kaiming, Xavier)
-- Gradient clipping support
-- Layer normalization for stable training
-- Skip connections to prevent vanishing gradients
