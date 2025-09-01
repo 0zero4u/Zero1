@@ -1,8 +1,4 @@
 
-"This Command-Line Interface (CLI) for the Zero1 Crypto Trading RL System.
-
-"including script serves as the primary entry point for all major operati"includinguding data processing, model training, and performance evaluation
-
 
 import logging
 import sys
