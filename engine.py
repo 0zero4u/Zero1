@@ -1,5 +1,3 @@
-# --- START OF FILE Zero1-main/engine.py ---
-
 
 """
 Enhanced Trading Environment for Crypto Trading RL
