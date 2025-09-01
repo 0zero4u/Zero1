@@ -181,7 +181,7 @@ class StrategyConfig(BaseModel):
             FeatureKeys.VOLUME_DELTA_1M: 80,
             # NEW: Add portfolio state. The 'lookback' value here represents the
             # number of features in the state vector (e.g., position size, margin, pnl).
-            FeatureKeys.PORTFOLIO_STATE: 3,
+            FeatureKeys.PORTFOLIO_STATE: 5,
             # NEW: Add precomputed features. The 'lookback' value here is the
             # number of features in the vector, similar to context.
             FeatureKeys.PRECOMPUTED_FEATURES: len(self.precomputed_feature_keys),
