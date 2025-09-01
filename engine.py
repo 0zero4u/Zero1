@@ -414,8 +414,4 @@ if __name__ == "__main__":
     try:
         logger.info("Testing trading environment...")
 
-        # This would require actual data files and a fitted normalizer
-        # from pathlib import Path
-        # bars_df = create_bars_from_trades("in_sample")
-        # normalizer = Normalizer(SETTINGS.strategy)
-        # normal
+        
