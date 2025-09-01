@@ -1,4 +1,3 @@
-# --- START OF FILE Zero1-main/config.py ---
 
 
 """
