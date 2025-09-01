@@ -1,4 +1,3 @@
---- START OF FILE Zero1-main/engine.py ---
 
 """
 Enhanced Trading Environment for Crypto Trading RL
@@ -365,7 +364,7 @@ class HierarchicalTradingEnvironment(gym.Env):
             super().reset(seed=seed)
 
             # Initialize portfolio state
-            self.balance = 10000.0  # Total account equity
+            self.balance = 1000000.0  # Total account equity
             self.asset_held = 0.0
 
             # State variables for isolated margin trading
