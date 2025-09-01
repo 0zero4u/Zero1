@@ -151,7 +151,7 @@ class StrategyConfig(BaseModel):
     maintenance_margin_rate: float = Field(default=0.005, ge=0.001, le=0.1, description="Maintenance margin rate for liquidation")
 
     max_margin_allocation_pct: float = Field(
-        default=0.02, ge=0.0001, le=0.2,
+        default=0.04, ge=0.0001, le=0.2,
         description="Maximum margin for a single position as a percentage of total equity, capping per-trade risk."
     )
 
