@@ -1,12 +1,4 @@
 """
-Updated Configuration System for Enhanced Crypto Trading RL - FIXED VERSION
-
-✅ MAJOR FIXES IMPLEMENTED:
-1. Configurable leverage parameter (default 10.0, tunable up to 25.0)
-2. Enhanced strategy configuration with leverage awareness
-3. Better validation for leverage-dependent parameters
-4. Improved risk management parameter scaling
-
 """
 
 import os
