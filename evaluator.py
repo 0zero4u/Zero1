@@ -35,7 +35,8 @@ warnings.filterwarnings('ignore')
 # Import from local modules - fixed import paths
 from processor import create_bars_from_trades
 from config import SETTINGS
-from engine import HierarchicalTradingEnvironment
+
+from engine import EnhancedHierarchicalTradingEnvironment
 from normalizer import Normalizer  # <-- IMPORT THE NEW NORMALIZER CLASS
 
 logger = logging.getLogger(__name__)
