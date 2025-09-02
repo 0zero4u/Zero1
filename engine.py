@@ -1,18 +1,6 @@
 """
 Enhanced Trading Environment for Crypto Trading RL - FIXED VERSION
 
-Major fixes implemented:
-1. ✅ FIXED: Dynamic reward scaling mechanism (scaling_factor = 200 / leverage)
-2. ✅ FIXED: Tunable reward weights via hyperparameters
-3. ✅ FIXED: Leverage as tunable hyperparameter (1.0 to 25.0x)
-4. ✅ FIXED: Enhanced stability and robustness
-
-Key fixes:
-1. Reward function now uses dynamic scaling based on leverage
-2. Reward weights are now received as hyperparameters
-3. Leverage is now configurable and tunable
-4. Progressive drawdown penalties with proper normalization
-5. Enhanced risk management with leverage-aware position sizing
 
 """
 
