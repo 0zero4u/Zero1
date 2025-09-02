@@ -1,18 +1,7 @@
 """
 Enhanced Training System for Crypto Trading RL - FIXED VERSION
 
-✅ MAJOR FIXES IMPLEMENTED:
-1. Dynamic reward scaling mechanism (scaling_factor = 200 / leverage)
-2. Tunable reward weights as hyperparameters 
-3. Leverage as tunable hyperparameter (1.0 to 25.0x max)
-4. Tunable learning rate schedule (constant, linear, cosine)
-5. Enabled and tunable target_kl parameter for policy stability
 
-This addresses the fundamental learning issues by:
-- Preserving reward signal gradients across leverage levels
-- Allowing Optuna to optimize agent "personality" via reward weights
-- Co-adapting policy and risk level simultaneously
-- Preventing policy collapse with adaptive target_kl
 
 """
 
