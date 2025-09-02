@@ -45,7 +45,7 @@ except ImportError:
 from processor import create_bars_from_trades, EnhancedDataProcessor, generate_stateful_features_for_fitting
 from config import SETTINGS, create_config, Environment
 from tins import EnhancedHierarchicalAttentionFeatureExtractor
-from fixed_engine import EnhancedHierarchicalTradingEnvironment  # ✅ FIXED: Import from fixed engine
+from engine import EnhancedHierarchicalTradingEnvironment  # ✅ FIXED: Import from fixed engine
 from normalizer import Normalizer
 
 logger = logging.getLogger(__name__)
