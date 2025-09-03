@@ -76,7 +76,6 @@ class AdvancedBacktester:
                 raise
 
             # --- NEW: Inject the normalizer into the environment ---
-            # NEW Line
 env = EnhancedHierarchicalTradingEnvironment(bars_df, normalizer=normalizer)
 
             # 2. Load Model
