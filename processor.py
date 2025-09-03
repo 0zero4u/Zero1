@@ -345,7 +345,7 @@ class EnhancedDataProcessor:
 
                     # Optimized reading parameters
                     read_params = {
-                        'chunksize': 1_000_000,
+                        'chunksize': 500_000,
                         'dtype': self.cfg.dtype_map,
                         'header': 0 if has_header else None,
                         'names': None if has_header else self.cfg.binance_raw_columns,
