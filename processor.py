@@ -562,7 +562,7 @@ class EnhancedDataProcessor:
             ddf = ddf.set_index('timestamp')
 
             # Resample to create OHLCV bars
-            resample_freq = self.cfg.base_bar_timeframe
+            resample_freq = self.cfg.base_bar_timeframe.value
             agg_dict = {
                 'price': ['first', 'max', 'min', 'last', 'count'],
                 'size': 'sum',
@@ -624,7 +624,7 @@ class EnhancedDataProcessor:
             combined_df = combined_df.set_index('timestamp').sort_index()
 
             # Resample to create OHLCV bars
-            resample_freq = self.cfg.base_bar_timeframe
+            resample_freq = self.cfg.base_bar_timeframe.value
 
             bars_df = combined_df.resample(resample_freq).agg({
                 'price': ['first', 'max', 'min', 'last', 'count'],
