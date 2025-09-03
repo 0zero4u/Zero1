@@ -76,7 +76,7 @@ class AdvancedBacktester:
                 raise
 
             # --- NEW: Inject the normalizer into the environment ---
-            env = HierarchicalTradingEnvironment(bars_df, normalizer=normalizer)
+env = EnhancedHierarchicalTradingEnvironment(bars_df, normalizer=normalizer)
 
             # 2. Load Model
             logger.warning("SECURITY WARNING: Loading model files can execute arbitrary code.")
@@ -873,7 +873,7 @@ class EnsembleBacktester:
                 logger.error(f"FATAL: Normalizer file not found at {normalizer_path}.")
                 raise
             
-            env = HierarchicalTradingEnvironment(bars_df, normalizer=normalizer)
+          NormalizerhancedHierarchicalTradingEnvironment(bars_df, normalizer=normalizer)
 
             # Load all models
             for i, model_path in enumerate(self.model_paths):
