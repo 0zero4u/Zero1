@@ -873,7 +873,6 @@ class EnsembleBacktester:
                 logger.error(f"FATAL: Normalizer file not found at {normalizer_path}.")
                 raise
             
-            # NEW Line
 env = EnhancedHierarchicalTradingEnvironment(bars_df, normalizer=normalizer)
 
             # Load all models
