@@ -30,8 +30,8 @@ tensorboard>=2.13.0
 tqdm>=4.65.0
 
 # Optional Performance Enhancements
-dask[dataframe]>=2023.5.0  # Optional, for large-scale data processing
-numba>=0.57.0              # Optional, for numerical acceleration
+dask[dataframe]>=2023.5.0
+numba>=0.57.0
 
 # Development and Testing (Optional)
 pytest>=7.0.0
