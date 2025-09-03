@@ -1,5 +1,3 @@
-
-
 import logging
 import sys
 import argparse
@@ -28,8 +26,7 @@ def setup_cli():
     # --- Process Command ---
     process_parser = subparsers.add_parser(
         'process',
-        help="Process raw trade data into enriched Parquet files.",
-        description="Ingests raw trade data (zip files) and converts it into a clean, processed format (Parquet) with features like side and asset."
+        help="Process raw trade data into enriched Parquet files."
     )
     process_parser.add_argument(
         '--period',
@@ -47,52 +44,49 @@ def setup_cli():
     # --- Train Command ---
     train_parser = subparsers.add_parser(
         'train',
-        help="Train a new PPO agent using the processed data.",
-        description="Handles the full training pipeline, including optional hyperparameter optimization with Optuna and final model training."
+        help="Train a new PPO agent using the processed data."
     )
     train_parser.add_argument(
         '--trials',
         type=int,
         default=20,
-        help="Number of Optuna hyperparameter optimization trials to run (set to 0 to skip)."
+        help="Number of Optuna hyperparameter optimization trials to run."
     )
     train_parser.add_argument(
         '--steps',
         type=int,
         default=500000,
-        help="Number of timesteps for the final training phase after optimization."
+        help="Number of timesteps for the final training phase."
     )
     train_parser.add_argument(
         '--wandb',
         action='store_true',
-        help="Enable experiment tracking with Weights & Biases (requires WANDB_API_KEY)."
+        help="Enable experiment tracking with Weights & Biases."
     )
 
     # --- Backtest Command ---
     backtest_parser = subparsers.add_parser(
         'backtest',
-        help="Evaluate a trained model's performance.",
-        description="Runs a comprehensive backtest on the out-of-sample data, generating performance metrics and visualizations."
+        help="Evaluate a trained model's performance."
     )
     backtest_parser.add_argument(
         '--model-path',
         type=str,
         default=None,
-        help="Path to the model .zip file to evaluate (defaults to the path in config)."
+        help="Path to the model .zip file to evaluate."
     )
     backtest_parser.add_argument(
         '--period',
         type=str,
         default='out_of_sample',
         choices=['in_sample', 'out_of_sample'],
-        help="The data period to backtest on (default: out_of_sample)."
+        help="The data period to backtest on."
     )
 
     # --- Run Pipeline Command ---
     pipeline_parser = subparsers.add_parser(
         'run-pipeline',
-        help="Run the full end-to-end pipeline: process -> train -> backtest.",
-        description="A convenience command to execute the standard workflow in sequence."
+        help="Run the full end-to-end pipeline: process -> train -> backtest."
     )
     pipeline_parser.add_argument(
         '--trials',
@@ -119,22 +113,17 @@ def main():
     try:
         print("🚀 Starting Zero1 Crypto Trading RL System 🚀")
         
-        # Set multiprocessing start method for compatibility (especially on macOS/Windows)
-        # This is crucial for SubprocVecEnv in the trainer.
         if mp.get_start_method(allow_none=True) is None:
             mp.set_start_method("spawn")
 
-        # Import and setup configuration
         from config import SETTINGS, setup_environment, validate_configuration
 
-        # Configure file-based logging
         log_file = Path(SETTINGS.get_logs_path()) / "system.log"
         log_file.parent.mkdir(exist_ok=True, parents=True)
         file_handler = logging.FileHandler(log_file)
         file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         logging.getLogger().addHandler(file_handler)
         
-        # Setup environment (create directories) and validate configuration
         setup_environment()
         warnings = validate_configuration(SETTINGS)
         if warnings:
@@ -157,9 +146,15 @@ def main():
         run_evaluation(args)
     elif args.command == 'run-pipeline':
         logger.info("Starting End-to-End Pipeline...")
+        # Process data for BOTH periods before training
         run_processing(argparse.Namespace(period='in_sample', force=True))
+        run_processing(argparse.Namespace(period='out_of_sample', force=True)) # <-- FIX #1: Added this line
+        
         run_training(args)
+        
+        # The evaluation step for the pipeline
         run_evaluation(argparse.Namespace(model_path=None, period='out_of_sample'))
+        
         logger.info("✅ End-to-End Pipeline Completed Successfully!")
 
 
@@ -180,7 +175,7 @@ def run_training(args):
     try:
         logger.info("--- Starting Model Training ---")
         logger.info(f"Optimization trials: {args.trials}, Final steps: {args.steps}, W&B: {args.wandb}")
-        from trainer import train_model_advanced
+        from trainer_enhanced import train_model_advanced # Using the correct trainer file
         train_model_advanced(
             optimization_trials=args.trials,
             final_training_steps=args.steps,
@@ -196,10 +191,8 @@ def run_evaluation(args):
     """Handles the model evaluation (backtesting) command."""
     try:
         logger.info(f"--- Starting Model Evaluation on '{args.period}' period ---")
-        # CRITICAL FIX: Importing from the correct module 'evaluator'
         from evaluator import run_backtest
         
-        # Check if the model exists if a custom path is not provided
         from config import SETTINGS
         model_path = args.model_path or SETTINGS.get_model_path()
         if not Path(model_path).exists():
@@ -208,7 +201,8 @@ def run_evaluation(args):
             sys.exit(1)
 
         logger.info(f"Using model: {model_path}")
-        run_backtest(model_path=model_path)
+        # <-- FIX #2: Pass the 'period' from args to the backtest function
+        run_backtest(model_path=model_path, period=args.period)
         logger.info("✅ Model evaluation completed successfully.")
     except Exception as e:
         logger.error(f"Model evaluation failed: {e}", exc_info=True)
