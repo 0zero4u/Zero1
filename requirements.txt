@@ -1,11 +1,9 @@
 
-# Python / environment note: use Python 3.10 or 3.11 for best binary compatibility.
-
 # Machine Learning & RL
 torch==2.8.0
 torchvision==0.23.0
-stable-baselines3==2.5.0
-gymnasium==1.0.0
+stable-baselines3>=2.6.0,<3.0.0
+gymnasium==1.1.1
 
 # Core Data Science - pinned for NumPy 2.0 compatibility
 numpy==2.0.2
