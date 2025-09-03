@@ -1,39 +1,40 @@
-# Core ML and RL Dependencies
-torch>=2.0.0
-torchvision>=0.15.0
-stable-baselines3>=2.0.0
-gymnasium>=0.29.0
 
-# Data Processing and Analysis
-pandas>=2.0.0
-numpy>=1.24.0
-scipy>=1.10.0
-pyarrow>=12.0.0
+# Python / environment note: use Python 3.10 or 3.11 for best binary compatibility.
 
-# Visualization and Plotting
-matplotlib>=3.7.0
-seaborn>=0.12.0
-plotly>=5.14.0
+# Machine Learning & RL
+torch==2.8.0
+torchvision==0.23.0
+stable-baselines3==2.5.0
+gymnasium==1.0.0
 
-# Configuration and Environment
-pydantic>=2.0.0
+# Core Data Science - pinned for NumPy 2.0 compatibility
+numpy==2.0.2
+scipy==1.14.1
+pandas==2.2.2
+
+# PyArrow - needs to be >=17.0.0 to support NumPy 2.0
+pyarrow>=17.0.0
+
+# Configuration / validation
+pydantic>=2.11.0
 python-dotenv>=1.0.0
 
-# Hyperparameter Optimization
-optuna>=3.2.0
+# Visualization
+matplotlib
+seaborn
+plotly
 
-# Experiment Tracking (Optional)
-wandb>=0.15.0
-tensorboard>=2.13.0
+# Utilities / experiment tracking
+tqdm
+optuna
+wandb
+tensorboard
 
-# Progress Bars and UI
-tqdm>=4.65.0
+# Big data / performance
+dask[dataframe]
+numba
 
-# Optional Performance Enhancements
-dask[dataframe]>=2023.5.0
-numba>=0.57.0
-
-# Development and Testing (Optional)
-pytest>=7.0.0
-black>=23.0.0
-flake8>=6.0.0
+# Dev / QA (optional)
+pytest
+black
+flake8
