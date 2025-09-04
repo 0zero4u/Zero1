@@ -1,11 +1,6 @@
 # UPDATED: trainer.py with Transformer Architecture Support
 
 """
-FIXED VERSION - Removes redundant validation logic and optimizations:
-1. REMOVED redundant d_model/n_heads validation (delegated to Pydantic config)
-2. Trusts ModelArchitectureConfig as single source of truth for validation
-3. Cleaner hyperparameter optimization without duplicate checks
-4. Enhanced Transformer architecture tuning
 
 Enhanced Trainer with Transformer Architecture Integration
 """
