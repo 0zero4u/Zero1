@@ -1,4 +1,3 @@
-# UPDATED: trainer.py with Transformer Architecture Support
 
 """
 
