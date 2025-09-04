@@ -3,15 +3,6 @@
 """
 Configuration System with Transformer Architecture Integration
 
-MAJOR CHANGES:
-- REMOVED: LSTM-specific parameters (lstm_layers, lstm_global_hidden_size, lstm_hidden_size)
-- RENAMED: expert_lstm_hidden_size -> expert_output_dim
-- ADDED: Transformer architecture parameters (transformer_d_model, transformer_n_heads, etc.)
-- UPDATED: Validation for Transformer architecture constraints
-- MAINTAINED: All existing reward horizon and trading configuration
-
-This version supports the new Transformer-based neural architecture while maintaining 
-backward compatibility with existing configuration patterns.
 """
 
 import os
