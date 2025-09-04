@@ -175,7 +175,7 @@ def run_training(args):
     try:
         logger.info("--- Starting Model Training ---")
         logger.info(f"Optimization trials: {args.trials}, Final steps: {args.steps}, W&B: {args.wandb}")
-        from trainer_enhanced import train_model_advanced # Using the correct trainer file
+        from trainer import train_model_advanced # Using the correct trainer file
         train_model_advanced(
             optimization_trials=args.trials,
             final_training_steps=args.steps,
@@ -190,7 +190,7 @@ def run_training(args):
 def run_evaluation(args):
     """Handles the model evaluation (backtesting) command."""
     try:
-        logger.info(f"--- Starting Model Evaluation on '{args.period}' period ---")
+        logger.info(e"--- Starting Model Evaluation on '{args.period}' period ---")
         from evaluator import run_backtest
         
         from config import SETTINGS
