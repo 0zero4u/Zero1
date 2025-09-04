@@ -145,13 +145,17 @@ def main():
     elif args.command == 'backtest':
         run_evaluation(args)
     elif args.command == 'run-pipeline':
-        logger.info("Starting End-to-End Pipeline...")
-        # Process data for BOTH periods before training
+        logger.info("--- Starting End-to-End Pipeline ---")
+        # FIX: Process data for BOTH periods before training to ensure backtest data exists.
+        logger.info("Step 1/3: Processing in-sample data...")
         run_processing(argparse.Namespace(period='in_sample', force=True))
-        run_processing(argparse.Namespace(period='out_of_sample', force=True)) # <-- FIX #1: Added this line
+        logger.info("Step 1/3: Processing out-of-sample data...")
+        run_processing(argparse.Namespace(period='out_of_sample', force=True))
         
+        logger.info("Step 2/3: Training model...")
         run_training(args)
         
+        logger.info("Step 3/3: Evaluating model on out-of-sample data...")
         # The evaluation step for the pipeline
         run_evaluation(argparse.Namespace(model_path=None, period='out_of_sample'))
         
@@ -190,7 +194,6 @@ def run_training(args):
 def run_evaluation(args):
     """Handles the model evaluation (backtesting) command."""
     try:
-        # --- THIS IS THE CORRECTED LINE ---
         logger.info(f"--- Starting Model Evaluation on '{args.period}' period ---")
         from evaluator import run_backtest
         
@@ -202,7 +205,7 @@ def run_evaluation(args):
             sys.exit(1)
 
         logger.info(f"Using model: {model_path}")
-        # <-- FIX #2: Pass the 'period' from args to the backtest function
+        # Pass the 'period' from args to the backtest function
         run_backtest(model_path=model_path, period=args.period)
         logger.info("✅ Model evaluation completed successfully.")
     except Exception as e:
