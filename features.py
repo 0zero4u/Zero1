@@ -3,17 +3,16 @@
 """
 Stateful, Incremental Feature Calculators for High-Performance Trading Environments.
 
-REFINEMENT: Centralized feature logic by adding a `calculate_vectorized` classmethod
-to each feature. This ensures that the logic used for batch processing (e.g., fitting
-the normalizer) is identical to the incremental logic used in the environment, creating
-a single source of truth and preventing train/test skew.
+REFINEMENT: Centralized feature logic by adding a `calculate_vectorized` class method
+to each feature. This ensures a single source of truth for both the incremental (live)
+and batch (normalizer fitting) calculations, preventing train/test skew.
 """
 
 from collections import deque
 import numpy as np
 import scipy.signal
 from typing import Dict, List
-import pandas as pd  # <-- Added pandas import
+import pandas as pd # <-- Added pandas import
 
 class StatefulFeature:
     """Base class for a stateful feature calculator."""
@@ -138,16 +137,17 @@ class StatefulPriceDistanceMA(StatefulFeature):
 
 class StatefulVWAPDistance(StatefulFeature):
     """
-    Stateful VWAP Distance calculator with both incremental and vectorized logic.
+    Stateful VWAP Distance calculator that restores declarative pattern consistency.
     """
     
-    def __init__(self, period: int = 9): # Default from config for 3m VWAP on 20s bars
+    def __init__(self, period: int = 9):
         super().__init__(period)
         self.price_buffer = deque(maxlen=period)
         self.volume_buffer = deque(maxlen=period)
         self.epsilon = 1e-9
         
     def update_vwap(self, price: float, volume: float):
+        """Special update method for VWAP calculation that takes both price and volume."""
         self.price_buffer.append(price)
         self.volume_buffer.append(volume)
         
@@ -168,6 +168,7 @@ class StatefulVWAPDistance(StatefulFeature):
         return self.last_value
     
     def update(self, new_data_point):
+        """Standard update method - expects a tuple (price, volume) or defaults volume to 1.0."""
         if isinstance(new_data_point, (tuple, list)) and len(new_data_point) >= 2:
             price, volume = new_data_point[0], new_data_point[1]
         else:
@@ -186,7 +187,7 @@ class StatefulVWAPDistance(StatefulFeature):
 
 class StatefulSRDistances(StatefulFeature):
     """
-    Stateful Support/Resistance distance calculator with shared incremental and vectorized logic.
+    Stateful Support/Resistance distance calculator.
     """
     
     def __init__(self, period: int, num_levels: int):
@@ -195,37 +196,32 @@ class StatefulSRDistances(StatefulFeature):
         self.last_value: Dict[str, float] = {f'dist_s{i+1}': 1.0 for i in range(num_levels)}
         self.last_value.update({f'dist_r{i+1}': 1.0 for i in range(num_levels)})
 
-    @staticmethod
-    def _calculate_sr_for_window(window: np.ndarray, num_levels: int) -> Dict[str, float]:
-        """Helper to avoid duplicating logic. Used by both update() and vectorized version."""
-        if len(window) < 2: return {}
-        current_price = window[-1]
-        results = {f'dist_s{i+1}': 1.0 for i in range(num_levels)}
-        results.update({f'dist_r{i+1}': 1.0 for i in range(num_levels)})
-        
-        peaks, _ = scipy.signal.find_peaks(window, distance=5)
-        troughs, _ = scipy.signal.find_peaks(-window, distance=5)
-        
-        support_levels = sorted([p for p in window[troughs] if p < current_price], reverse=True)
-        for i in range(num_levels):
-            if i < len(support_levels):
-                results[f'dist_s{i+1}'] = (current_price - support_levels[i]) / current_price
-                
-        resistance_levels = sorted([p for p in window[peaks] if p > current_price])
-        for i in range(num_levels):
-            if i < len(resistance_levels):
-                results[f'dist_r{i+1}'] = (resistance_levels[i] - current_price) / current_price
-                
-        return results
-
     def update(self, new_price: float):
         self.q.append(new_price)
-        if self.is_ready():
-            self.last_value = self._calculate_sr_for_window(np.array(self.q), self.num_levels)
+        if not self.is_ready():
+            return self.last_value
+        self.last_value = self._calculate_sr_for_window(np.array(self.q), self.num_levels)
         return self.last_value
 
     def get(self) -> Dict[str, float]:
         return self.last_value
+
+    @classmethod
+    def _calculate_sr_for_window(cls, window: np.ndarray, num_levels: int) -> Dict[str, float]:
+        """Helper to calculate S/R levels for a given window. Shared by incremental and vectorized methods."""
+        if len(window) < 2: return {}
+        current_price = window[-1]
+        results = {f'dist_s{i+1}': 1.0 for i in range(num_levels)}
+        results.update({f'dist_r{i+1}': 1.0 for i in range(num_levels)})
+        peaks, _ = scipy.signal.find_peaks(window, distance=5)
+        troughs, _ = scipy.signal.find_peaks(-window, distance=5)
+        support_levels = sorted([p for p in window[troughs] if p < current_price], reverse=True)
+        for i in range(num_levels):
+            if i < len(support_levels): results[f'dist_s{i+1}'] = (current_price - support_levels[i]) / current_price
+        resistance_levels = sorted([p for p in window[peaks] if p > current_price])
+        for i in range(num_levels):
+            if i < len(resistance_levels): results[f'dist_r{i+1}'] = (resistance_levels[i] - current_price) / current_price
+        return results
 
     @classmethod
     def calculate_vectorized(cls, data: pd.Series, period: int, num_levels: int) -> pd.DataFrame:
@@ -236,10 +232,10 @@ class StatefulSRDistances(StatefulFeature):
         sr_df = pd.DataFrame(results_series.dropna().tolist(), index=results_series.dropna().index)
         return sr_df
 
-# Map string names to classes for the processor to dynamically call vectorized methods
+# Map string names to classes for the processor's vectorized generation
 VECTORIZED_CALCULATOR_MAP = {
     'StatefulBBWPercentRank': StatefulBBWPercentRank,
     'StatefulPriceDistanceMA': StatefulPriceDistanceMA,
     'StatefulVWAPDistance': StatefulVWAPDistance,
     'StatefulSRDistances': StatefulSRDistances,
-        }
+}
