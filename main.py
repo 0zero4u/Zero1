@@ -190,7 +190,8 @@ def run_training(args):
 def run_evaluation(args):
     """Handles the model evaluation (backtesting) command."""
     try:
-        logger.info(e"--- Starting Model Evaluation on '{args.period}' period ---")
+        # --- THIS IS THE CORRECTED LINE ---
+        logger.info(f"--- Starting Model Evaluation on '{args.period}' period ---")
         from evaluator import run_backtest
         
         from config import SETTINGS
