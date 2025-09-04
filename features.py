@@ -1,15 +1,19 @@
-# REFINED: features.py with StatefulVWAPDistance
+# REFINED: features.py with Centralized Vectorized Logic
 
 """
 Stateful, Incremental Feature Calculators for High-Performance Trading Environments.
 
-REFINEMENT: Added StatefulVWAPDistance to restore declarative pattern consistency.
+REFINEMENT: Centralized feature logic by adding a `calculate_vectorized` classmethod
+to each feature. This ensures that the logic used for batch processing (e.g., fitting
+the normalizer) is identical to the incremental logic used in the environment, creating
+a single source of truth and preventing train/test skew.
 """
 
 from collections import deque
 import numpy as np
 import scipy.signal
 from typing import Dict, List
+import pandas as pd  # <-- Added pandas import
 
 class StatefulFeature:
     """Base class for a stateful feature calculator."""
@@ -32,6 +36,11 @@ class StatefulFeature:
     def is_ready(self) -> bool:
         """Check if the calculator has enough data to produce a value."""
         return len(self.q) == self.period
+
+    @classmethod
+    def calculate_vectorized(cls, **kwargs) -> pd.DataFrame:
+        """Vectorized calculation for this feature. To be implemented by subclasses."""
+        raise NotImplementedError
 
 class StatefulSMA(StatefulFeature):
     """Stateful Simple Moving Average with O(1) update time."""
@@ -56,8 +65,6 @@ class StatefulStdDev(StatefulFeature):
     def update(self, new_value: float):
         self.q.append(new_value)
         if self.is_ready():
-            # For performance, this is sufficient as it's only called on new bars.
-            # A more complex implementation could use Welford's algorithm for O(1) updates.
             self.last_value = np.std(list(self.q), ddof=0)
         return self.last_value
 
@@ -96,6 +103,16 @@ class StatefulBBWPercentRank(StatefulFeature):
     def is_ready(self) -> bool:
         return len(self.bbw_history) == self.rank_window
 
+    @classmethod
+    def calculate_vectorized(cls, data: pd.Series, period: int = 20, rank_window: int = 250) -> pd.DataFrame:
+        """Vectorized calculation of Bollinger Bandwidth Percent Rank."""
+        sma = data.rolling(window=period, min_periods=period).mean()
+        std = data.rolling(window=period, min_periods=period).std()
+        bbw = (4 * std) / (sma + 1e-9)
+        # Percentile rank over the rank_window
+        bbw_pct_rank = bbw.rolling(window=rank_window).apply(lambda x: pd.Series(x).rank(pct=True).iloc[-1], raw=False) * 100
+        return pd.DataFrame({'bbw_pct_rank': bbw_pct_rank})
+
 class StatefulPriceDistanceMA(StatefulFeature):
     """Stateful distance from a Simple Moving Average."""
     
@@ -112,111 +129,117 @@ class StatefulPriceDistanceMA(StatefulFeature):
         self.last_value = (new_value / (current_ma + self.epsilon)) - 1.0
         return self.last_value
 
-# NEW: StatefulVWAPDistance - REFINEMENT to restore declarative pattern
+    @classmethod
+    def calculate_vectorized(cls, data: pd.Series, period: int) -> pd.DataFrame:
+        """Vectorized calculation of Price Distance from MA."""
+        sma = data.rolling(window=period, min_periods=period).mean()
+        dist = (data / (sma + 1e-9)) - 1.0
+        return pd.DataFrame({'price_dist_ma': dist})
+
 class StatefulVWAPDistance(StatefulFeature):
     """
-    REFINEMENT: Stateful VWAP Distance calculator that restores declarative pattern consistency.
-    
-    This calculator maintains separate buffers for price and volume data to compute VWAP
-    over a specified period, then calculates the distance from current price to VWAP.
-    
-    This implementation moves dist_vwap_3m back into the declarative configuration system
-    rather than pre-computing it in processor.py, ensuring all complex features are 
-    consistently defined in the stateful calculator framework.
+    Stateful VWAP Distance calculator with both incremental and vectorized logic.
     """
     
-    def __init__(self, period: int = 90):  # 90 * 20s = 30 minutes for 3min VWAP equivalent
+    def __init__(self, period: int = 9): # Default from config for 3m VWAP on 20s bars
         super().__init__(period)
         self.price_buffer = deque(maxlen=period)
         self.volume_buffer = deque(maxlen=period)
         self.epsilon = 1e-9
         
     def update_vwap(self, price: float, volume: float):
-        """
-        Special update method for VWAP calculation that takes both price and volume.
-        This method should be called when a new bar (price, volume pair) is available.
-        """
         self.price_buffer.append(price)
         self.volume_buffer.append(volume)
         
-        if len(self.price_buffer) >= 2:  # Need at least 2 points
-            # Calculate VWAP over the current window
+        if len(self.price_buffer) >= 2:
             prices = np.array(self.price_buffer)
             volumes = np.array(self.volume_buffer)
-            
-            # Compute weighted average price
             total_pv = np.sum(prices * volumes)
             total_volume = np.sum(volumes)
             
             if total_volume > self.epsilon:
                 vwap = total_pv / total_volume
-                current_price = prices[-1]  # Most recent price
-                
-                # Calculate distance: (current_price - vwap) / vwap
+                current_price = prices[-1]
                 self.last_value = (current_price - vwap) / (vwap + self.epsilon)
             else:
                 self.last_value = 0.0
         else:
             self.last_value = 0.0
-            
         return self.last_value
     
     def update(self, new_data_point):
-        """
-        Standard update method - expects a tuple (price, volume) or defaults volume to 1.0
-        """
         if isinstance(new_data_point, (tuple, list)) and len(new_data_point) >= 2:
             price, volume = new_data_point[0], new_data_point[1]
         else:
-            # If only price is provided, assume unit volume
             price, volume = float(new_data_point), 1.0
-            
         return self.update_vwap(price, volume)
+
+    @classmethod
+    def calculate_vectorized(cls, price_series: pd.Series, volume_series: pd.Series, period: int) -> pd.DataFrame:
+        """Vectorized calculation of VWAP Distance."""
+        pv = price_series * volume_series
+        rolling_pv_sum = pv.rolling(window=period, min_periods=period).sum()
+        rolling_volume_sum = volume_series.rolling(window=period, min_periods=period).sum()
+        vwap = rolling_pv_sum / (rolling_volume_sum + 1e-9)
+        dist = (price_series - vwap) / (vwap + 1e-9)
+        return pd.DataFrame({'dist_vwap': dist})
 
 class StatefulSRDistances(StatefulFeature):
     """
-    Stateful Support/Resistance distance calculator.
-    This re-calculates on new bars, which is far more efficient than every step.
+    Stateful Support/Resistance distance calculator with shared incremental and vectorized logic.
     """
     
     def __init__(self, period: int, num_levels: int):
         super().__init__(period)
         self.num_levels = num_levels
-        # Initialize last_value with default large distances
         self.last_value: Dict[str, float] = {f'dist_s{i+1}': 1.0 for i in range(num_levels)}
         self.last_value.update({f'dist_r{i+1}': 1.0 for i in range(num_levels)})
 
+    @staticmethod
+    def _calculate_sr_for_window(window: np.ndarray, num_levels: int) -> Dict[str, float]:
+        """Helper to avoid duplicating logic. Used by both update() and vectorized version."""
+        if len(window) < 2: return {}
+        current_price = window[-1]
+        results = {f'dist_s{i+1}': 1.0 for i in range(num_levels)}
+        results.update({f'dist_r{i+1}': 1.0 for i in range(num_levels)})
+        
+        peaks, _ = scipy.signal.find_peaks(window, distance=5)
+        troughs, _ = scipy.signal.find_peaks(-window, distance=5)
+        
+        support_levels = sorted([p for p in window[troughs] if p < current_price], reverse=True)
+        for i in range(num_levels):
+            if i < len(support_levels):
+                results[f'dist_s{i+1}'] = (current_price - support_levels[i]) / current_price
+                
+        resistance_levels = sorted([p for p in window[peaks] if p > current_price])
+        for i in range(num_levels):
+            if i < len(resistance_levels):
+                results[f'dist_r{i+1}'] = (resistance_levels[i] - current_price) / current_price
+                
+        return results
+
     def update(self, new_price: float):
         self.q.append(new_price)
-        
-        if not self.is_ready():
-            return self.last_value
-            
-        window_vals = np.array(self.q)
-        current_price = window_vals[-1]
-        
-        peaks, _ = scipy.signal.find_peaks(window_vals, distance=5)
-        troughs, _ = scipy.signal.find_peaks(-window_vals, distance=5)
-        
-        # Support Levels (below current price)
-        support_levels = sorted([p for p in window_vals[troughs] if p < current_price], reverse=True)
-        for level in range(self.num_levels):
-            key = f'dist_s{level+1}'
-            if level < len(support_levels):
-                self.last_value[key] = (current_price - support_levels[level]) / current_price
-            else:
-                self.last_value[key] = 1.0
-        
-        # Resistance Levels (above current price)
-        resistance_levels = sorted([p for p in window_vals[peaks] if p > current_price])
-        for level in range(self.num_levels):
-            key = f'dist_r{level+1}'
-            if level < len(resistance_levels):
-                self.last_value[key] = (resistance_levels[level] - current_price) / current_price
-            else:
-                self.last_value[key] = 1.0
-                
+        if self.is_ready():
+            self.last_value = self._calculate_sr_for_window(np.array(self.q), self.num_levels)
         return self.last_value
 
     def get(self) -> Dict[str, float]:
         return self.last_value
+
+    @classmethod
+    def calculate_vectorized(cls, data: pd.Series, period: int, num_levels: int) -> pd.DataFrame:
+        """Vectorized calculation of S/R Distances."""
+        results_series = data.rolling(window=period).apply(
+            lambda x: cls._calculate_sr_for_window(x, num_levels), raw=True
+        )
+        sr_df = pd.DataFrame(results_series.dropna().tolist(), index=results_series.dropna().index)
+        return sr_df
+
+# Map string names to classes for the processor to dynamically call vectorized methods
+VECTORIZED_CALCULATOR_MAP = {
+    'StatefulBBWPercentRank': StatefulBBWPercentRank,
+    'StatefulPriceDistanceMA': StatefulPriceDistanceMA,
+    'StatefulVWAPDistance': StatefulVWAPDistance,
+    'StatefulSRDistances': StatefulSRDistances,
+        }
