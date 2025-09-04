@@ -1,20 +1,6 @@
 # FIXED: tins.py - Configurable Positional Encoding + Attention History Tracking
 
 """
-FIXED VERSION - Enhanced Neural Network Architecture with Critical Fixes:
-
-🚨 CRITICAL FIXES APPLIED:
-1. Configurable positional encoding size (no more hardcoded 1000 limit)
-2. Attention history tracking (no more overwriting last batch only)
-3. Dependency injection pattern (no global SETTINGS)
-4. Enhanced error handling and validation
-5. Improved maintainability with better architecture
-
-KEY IMPROVEMENTS:
-- Transformer positional encoding now adapts to max_sequence_length from config
-- Attention weights captured and stored for full episode analysis
-- Removed dangerous global SETTINGS dependency
-- Better error recovery and fallback mechanisms
 """
 
 import torch
