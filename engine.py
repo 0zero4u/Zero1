@@ -1,11 +1,6 @@
 """
 FIXED Enhanced Trading Environment for Crypto Trading RL
 
-OPTIMIZED VERSION - Addresses _warmup_features performance bottleneck:
-1. ADDED optimized vectorized warmup using pre-calculated features
-2. Maintains backwards compatibility with step-by-step warmup as fallback
-3. Significantly faster environment resets during training
-4. Enhanced reward horizon system remains intact
 
 This version includes a robust, leak-proof Reward Horizon system.
 """
