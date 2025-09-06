@@ -723,7 +723,7 @@ def process_trades_for_period(period_name: str, force_reprocess: bool = False):
 
 def create_bars_from_trades(period_name: str, additional_features: bool = True) -> pd.DataFrame:
     """Convenience function to create bars from processed trades."""
-    processor = EnhancedDataProcessor.
+    processor = EnhancedDataProcessor
 
     return processor.create_enhanced_bars_from_trades(period_name, additional_features)
 
