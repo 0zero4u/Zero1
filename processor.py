@@ -793,4 +793,4 @@ if __name__ == "__main__":
         logger.info("✅ Data processor test completed!")
 
     except Exception as e:
-        logger.error(f"Data processor test failed: {e}")```
+        logger.error(f"Data processor test failed: {e}")
