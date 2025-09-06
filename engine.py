@@ -1022,4 +1022,4 @@ class EnhancedHierarchicalTradingEnvironment(gym.Env):
             
         except Exception as e:
             logger.error(f"Error calculating performance metrics: {e}")
-            return {'leverage': self.leverage}```
+            return {'leverage': self.leverage}
