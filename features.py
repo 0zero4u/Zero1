@@ -227,7 +227,8 @@ class StatefulSRDistances(StatefulFeature):
     def calculate_vectorized(cls, data: pd.Series, period: int, num_levels: int) -> pd.DataFrame:
         """Vectorized calculation of S/R Distances."""
         # --- THIS IS THE DEFINITIVE FIX ---
-        # Explicitly convert the Series to a numpy array before passing it
+        # 1. Convert the Series to a NumPy array with .to_numpy() before passing it.
+        # 2. Keep raw=False to handle the dictionary return type correctly.
         results_series = data.rolling(window=period).apply(
             lambda x: cls._calculate_sr_for_window(x.to_numpy(), num_levels), raw=False
         )
