@@ -1,3 +1,5 @@
+# main.py - FULLY CORRECTED VERSION
+
 import logging
 import sys
 import argparse
@@ -16,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def setup_cli():
+    # Patched to fix pipeline bugs
     """Configures the command-line interface using argparse."""
     parser = argparse.ArgumentParser(
         description="Zero1: An Enhanced Reinforcement Learning System for Crypto Trading.",
@@ -100,11 +103,18 @@ def setup_cli():
         default=100000,
         help="Number of timesteps for the final training step."
     )
+    # FIX #1: Added the missing '--wandb' argument
+    pipeline_parser.add_argument(
+        '--wandb',
+        action='store_true',
+        help="Enable experiment tracking with Weights & Biases for the pipeline."
+    )
 
     return parser
 
 
 def main():
+    # Patched to fix pipeline bugs
     """Main function to orchestrate the trading system's operations via CLI."""
     parser = setup_cli()
     args = parser.parse_args()
@@ -146,11 +156,11 @@ def main():
         run_evaluation(args)
     elif args.command == 'run-pipeline':
         logger.info("--- Starting End-to-End Pipeline ---")
-        # FIX: Process data for BOTH periods before training to ensure backtest data exists.
+        # FIX #2: Changed 'force=True' to 'force=False'
         logger.info("Step 1/3: Processing in-sample data...")
-        run_processing(argparse.Namespace(period='in_sample', force=True))
+        run_processing(argparse.Namespace(period='in_sample', force=False))
         logger.info("Step 1/3: Processing out-of-sample data...")
-        run_processing(argparse.Namespace(period='out_of_sample', force=True))
+        run_processing(argparse.Namespace(period='out_of_sample', force=False))
         
         logger.info("Step 2/3: Training model...")
         # --- UPDATED: Capture the returned model path ---
