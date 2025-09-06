@@ -4,37 +4,37 @@ torchvision==0.23.0
 stable-baselines3>=2.6.0,<3.0.0
 gymnasium==1.1.1
 
-# Core Data Science – NumPy 2.0 stack
+# Core Data Science – pinned for NumPy 2.0 compatibility
 numpy==2.0.2
 scipy==1.14.1
 pandas==2.2.2
 
-# Arrow (NumPy 2 support starts at 17.0.0)
+# PyArrow – needs to be >=17.0.0 to support NumPy 2.0
 pyarrow>=17.0.0
 
-# Protocol Buffers – aligns with grpcio-status & ydf
-protobuf>=5.29.1,<6.0.0
+# Protocol Buffers – widened range to satisfy WandB
+protobuf>=3.20.0,<5.0.0
 
-# Config / validation
+# Configuration / validation
 pydantic>=2.11.0
 python-dotenv>=1.0.0
 
-# Visualisation
-matplotlib>=3.7.0,<4.0
-seaborn>=0.13.2,<1.0
-plotly>=5.15.0,<6.0
+# Visualization (NumPy-friendly releases)
+matplotlib>=3.7.0,<4.0       # 3.7+ works with NumPy 2
+seaborn>=0.13.2,<1.0         # compatible with matplotlib ≥3.7
+plotly>=5.15.0,<6.0          # stable 5.x series
 
 # Utilities / experiment tracking
 tqdm>=4.65.0,<5.0
-optuna>=4.0.0,<5.0
-wandb==0.16.10               # first 0.16 LTS build with no pathtools dependency
+optuna>=4.0.0,<5.0           # current Optuna 4.x
+wandb>=0.16.6,<0.17.0        # 0.16.x avoids pathtools 0.1.2 build error
 
-# TensorBoard (NumPy 2 fixed in 2.18)
+# TensorBoard – first release with NumPy 2 support
 tensorboard>=2.18.0,<3.0
 
-# Big-data / performance
-dask[dataframe]>=2024.5.1
-numba>=0.60.0,<0.62.0
+# Big data / performance
+dask[dataframe]>=2024.5.1    # NumPy 2 fixes landed in 2024.5.x
+numba>=0.60.0,<0.62.0        # 0.60 adds binary support for NumPy 2
 
 # Dev / QA (optional)
 pytest>=7.4.0
