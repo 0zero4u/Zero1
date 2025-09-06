@@ -1,18 +1,19 @@
+
 # Machine Learning & RL
 torch==2.8.0
 torchvision==0.23.0
 stable-baselines3>=2.6.0,<3.0.0
 gymnasium==1.1.1
 
-# Core Data Science - pinned for NumPy 2.0 compatibility
+# Core Data Science – pinned for NumPy 2.0 compatibility
 numpy==2.0.2
 scipy==1.14.1
 pandas==2.2.2
 
-# PyArrow - needs to be >=17.0.0 to support NumPy 2.0
+# PyArrow – needs to be >=17.0.0 to support NumPy 2.0
 pyarrow>=17.0.0
 
-# Protocol Buffers - updated to resolve grpcio-status and ydf conflicts
+# Protocol Buffers – updated to resolve grpcio-status and ydf conflicts
 protobuf>=5.29.1,<6.0.0
 
 # Configuration / validation
@@ -20,23 +21,21 @@ pydantic>=2.11.0
 python-dotenv>=1.0.0
 
 # Visualization (pin to modern, NumPy-friendly releases)
-matplotlib>=3.7.0,<4.0   # recent Matplotlib requires recent NumPy; use >=3.7 for NumPy 2 compatibility
-seaborn>=0.13.2,<1.0     # seaborn (pure-Python) — pick a modern release that pairs with matplotlib
-plotly>=5.15.0,<6.0      # plotly 5.x is the stable modern series
+matplotlib>=3.7.0,<4.0       # 3.7+ works with NumPy 2
+seaborn>=0.13.2,<1.0         # pairs with matplotlib >=3.7
+plotly>=5.15.0,<6.0          # stable 5.x series
 
 # Utilities / experiment tracking
 tqdm>=4.65.0,<5.0
-optuna>=4.0.0,<5.0       # recent Optuna 4.x releases are current as of 2024–2025
+optuna>=4.0.0,<5.0           # current Optuna 4.x
+wandb>=0.16.6,<0.17.0        # upgraded to avoid pathtools 0.1.2 build error
 
-# WARNING: wandb historically had NumPy 2 issues for some releases; test after install.
-wandb>=0.15.0,<0.17.0    # if you hit NumPy 2 errors, try upgrading to the latest wandb or pin lower and test
+# TensorBoard – first release with NumPy 2 support
+tensorboard>=2.18.0,<3.0
 
-# TensorBoard: choose version that added NumPy 2 support
-tensorboard>=2.18.0,<3.0  # tensorboard <=2.17 had issues with NumPy 2; 2.18+ fixes it
-
-# Big data / performance (dask release series that added NumPy2 support; numba added binary support in 0.60)
-dask[dataframe]>=2024.5.1  # Dask added compatibility fixes for NumPy 2 in 2024.5.x
-numba>=0.60.0,<0.62.0      # Numba 0.60 added binary support for NumPy 2.0
+# Big data / performance
+dask[dataframe]>=2024.5.1    # NumPy 2 fixes landed in 2024.5.x
+numba>=0.60.0,<0.62.0        # 0.60 adds binary support for NumPy 2
 
 # Dev / QA (optional)
 pytest>=7.4.0
