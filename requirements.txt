@@ -27,7 +27,7 @@ plotly>=5.15.0,<6.0          # stable 5.x series
 # Utilities / experiment tracking
 tqdm>=4.65.0,<5.0
 optuna>=4.0.0,<5.0           # current Optuna 4.x
-wandb>=0.16.6,<0.17.0        # 0.16.x avoids pathtools 0.1.2 build error
+wandb>=0.17.0        # 0.16.x avoids pathtools 0.1.2 build error
 
 # TensorBoard – first release with NumPy 2 support
 tensorboard>=2.18.0,<3.0
