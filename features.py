@@ -226,9 +226,12 @@ class StatefulSRDistances(StatefulFeature):
     @classmethod
     def calculate_vectorized(cls, data: pd.Series, period: int, num_levels: int) -> pd.DataFrame:
         """Vectorized calculation of S/R Distances."""
+        # --- THIS IS THE FIX ---
+        # Changed raw=True to raw=False to allow dictionary returns
         results_series = data.rolling(window=period).apply(
-            lambda x: cls._calculate_sr_for_window(x, num_levels), raw=True
+            lambda x: cls._calculate_sr_for_window(x, num_levels), raw=False
         )
+        # --- END OF FIX ---
         sr_df = pd.DataFrame(results_series.dropna().tolist(), index=results_series.dropna().index)
         return sr_df
 
