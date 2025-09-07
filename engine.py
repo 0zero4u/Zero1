@@ -123,7 +123,7 @@ class FixedRewardCalculator:
             'risk_adjusted': 0.11,   # Moderate Sharpe-like component
             'stability': 0.04,        # Reward consistency
             'transaction_penalty': -0.03,  # Conservative penalty
-            'drawdown_penalty': -0.006,      # Moderate drawdown deterrent
+            'drawdown_penalty': -0.0006,      # Moderate drawdown deterrent
             'position_penalty': -0.01,     # Light position size penalty
             'risk_bonus': 0.04,       # Reward good risk management
             'exploration_bonus': 0.12, # Light exploration incentive
