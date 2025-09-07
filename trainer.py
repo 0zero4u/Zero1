@@ -1,5 +1,3 @@
---- START OF FILE Zero1-main/trainer.py ---
-# FILE: Zero1-main/trainer.py (FULLY CORRECTED FOR IMMEDIATE REWARD SYSTEM)
 
 """
 FIXED: Trainer with Immediate Reward System and Transformer Architecture Integration
