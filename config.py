@@ -709,4 +709,3 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Configuration test failed: {e}")
         print(f"❌ Configuration error: {e}")
---- END OF FILE Zero1-main/config.py ---
