@@ -1,5 +1,3 @@
---- START OF FILE Zero1-main/config.py ---
-# FIXED: config.py with Immediate Reward System
 
 """
 FIXED: Configuration with Immediate Reward System for proper PPO training
