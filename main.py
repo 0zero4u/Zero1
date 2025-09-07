@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 def setup_cli():
-    # Patched to fix pipeline bugs
     """Configures the command-line interface using argparse."""
     parser = argparse.ArgumentParser(
         description="Zero1: An Enhanced Reinforcement Learning System for Crypto Trading.",
@@ -103,18 +102,22 @@ def setup_cli():
         default=100000,
         help="Number of timesteps for the final training step."
     )
-    # FIX #1: Added the missing '--wandb' argument
     pipeline_parser.add_argument(
         '--wandb',
         action='store_true',
         help="Enable experiment tracking with Weights & Biases for the pipeline."
+    )
+    # FIX: Add --force argument to the pipeline command for user control
+    pipeline_parser.add_argument(
+        '--force',
+        action='store_true',
+        help="Force reprocessing of data files during the pipeline run."
     )
 
     return parser
 
 
 def main():
-    # Patched to fix pipeline bugs
     """Main function to orchestrate the trading system's operations via CLI."""
     parser = setup_cli()
     args = parser.parse_args()
@@ -156,18 +159,17 @@ def main():
         run_evaluation(args)
     elif args.command == 'run-pipeline':
         logger.info("--- Starting End-to-End Pipeline ---")
-        # FIX #2: Changed 'force=True' to 'force=False'
+        
+        # FIX: Pass the force argument from the pipeline command down to the processing steps
         logger.info("Step 1/3: Processing in-sample data...")
-        run_processing(argparse.Namespace(period='in_sample', force=False))
+        run_processing(argparse.Namespace(period='in_sample', force=args.force))
         logger.info("Step 1/3: Processing out-of-sample data...")
-        run_processing(argparse.Namespace(period='out_of_sample', force=False))
+        run_processing(argparse.Namespace(period='out_of_sample', force=args.force))
         
         logger.info("Step 2/3: Training model...")
-        # --- UPDATED: Capture the returned model path ---
         new_model_path = run_training(args)
         
         logger.info("Step 3/3: Evaluating model on out-of-sample data...")
-        # --- UPDATED: Pass the specific model path to the evaluation step ---
         run_evaluation(argparse.Namespace(model_path=new_model_path, period='out_of_sample'))
         
         logger.info("✅ End-to-End Pipeline Completed Successfully!")
@@ -190,14 +192,15 @@ def run_training(args):
     try:
         logger.info("--- Starting Model Training ---")
         logger.info(f"Optimization trials: {args.trials}, Final steps: {args.steps}, W&B: {args.wandb}")
-        from trainer import train_model_advanced # Using the correct trainer file
+        # NOTE: This now calls the CORRECTED trainer file
+        from trainer import train_model_advanced
         model_path = train_model_advanced(
             optimization_trials=args.trials,
             final_training_steps=args.steps,
             use_wandb=args.wandb
         )
         logger.info("✅ Model training completed successfully.")
-        return model_path # --- UPDATED: Return the path ---
+        return model_path
     except Exception as e:
         logger.error(f"Model training failed: {e}", exc_info=True)
         sys.exit(1)
@@ -209,8 +212,6 @@ def run_evaluation(args):
         logger.info(f"--- Starting Model Evaluation on '{args.period}' period ---")
         from evaluator import run_backtest
         
-        # --- UPDATED: Simplified model path logic ---
-        # The pipeline now provides the exact path. The CLI provides an optional one.
         if not args.model_path:
             logger.error("Model path is required for backtesting.")
             logger.error("Please provide the path using the --model-path argument.")
@@ -222,7 +223,6 @@ def run_evaluation(args):
             sys.exit(1)
 
         logger.info(f"Using model: {model_path}")
-        # Pass the 'period' from args to the backtest function
         run_backtest(model_path=model_path, period=args.period)
         logger.info("✅ Model evaluation completed successfully.")
     except Exception as e:
