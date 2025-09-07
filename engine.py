@@ -212,7 +212,7 @@ class FixedRewardCalculator:
                 # Progressive penalty that increases with severity
                 drawdown_severity = (current_drawdown - 0.05) / 0.15  # Scale to [0,1] for 5-20% drawdown
                 drawdown_severity = min(1.0, drawdown_severity)
-                penalty_factor = drawdown_severity ** 2  # Quadratic penalty
+                penalty_factor = drawdown_severity ** 0.5  # Quadratic penalty
                 components['drawdown_penalty'] = penalty_factor * self.weights['drawdown_penalty']
             else:
                 components['drawdown_penalty'] = 0.0
