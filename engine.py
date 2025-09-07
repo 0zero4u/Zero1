@@ -120,9 +120,9 @@ class FixedRewardCalculator:
         # FIXED: Balanced reward weights for immediate rewards
         self.weights = reward_weights or {
             'base_return': 1.4,      # Primary signal
-            'risk_adjusted': 0.15,   # Moderate Sharpe-like component
+            'risk_adjusted': 0.02,   # Moderate Sharpe-like component
             'stability': 0.1,        # Reward consistency
-            'transaction_penalty': -0.05,  # Conservative penalty
+            'transaction_penalty': -0.03,  # Conservative penalty
             'drawdown_penalty': -0.02,      # Moderate drawdown deterrent
             'position_penalty': -0.01,     # Light position size penalty
             'risk_bonus': 0.2,       # Reward good risk management
