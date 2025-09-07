@@ -411,7 +411,7 @@ class GlobalConfig(BaseModel):
     
     slippage_pct: float = Field(
         default_factory=lambda: float(os.getenv('SLIPPAGE', 0.0001)),
-        ge=0.0, le=0.003, description="Slippage percentage"
+        ge=0.0, le=0.004, description="Slippage percentage"
     )
     
     # Data schema
