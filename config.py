@@ -406,12 +406,12 @@ class GlobalConfig(BaseModel):
     base_bar_timeframe: TimeFrameType = TimeFrameType.SECOND_20
     transaction_fee_pct: float = Field(
         default_factory=lambda: float(os.getenv('TRANSACTION_FEE', 0.000472)),
-        ge=0.0, le=0.000472, description="Transaction fee percentage"
+        ge=0.0, le=0.01, description="Transaction fee percentage"
     )
     
     slippage_pct: float = Field(
         default_factory=lambda: float(os.getenv('SLIPPAGE', 0.0001)),
-        ge=0.0, le=0.0001, description="Slippage percentage"
+        ge=0.0, le=0.003, description="Slippage percentage"
     )
     
     # Data schema
