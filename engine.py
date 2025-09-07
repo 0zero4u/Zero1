@@ -1,5 +1,3 @@
---- START OF MODIFIED FILE Zero1-main/engine.py ---
-# FIXED: engine.py with Immediate Reward System for Proper PPO Training
 
 """
 FIXED: Enhanced Trading Environment with Immediate Reward System
