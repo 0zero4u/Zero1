@@ -141,9 +141,9 @@ class FixedRewardCalculator:
             'drawdown_penalty': -0.8,   # Reduced harshness
             'position_penalty': -0.05,  # Very light position penalty
             'risk_bonus': 0.3,          # Reward good risk management
-            'exploration_bonus': 0.5,   # Strong exploration incentive
+            'exploration_bonus': 0.06,   # Strong exploration incentive
             'inactivity_penalty': -0.2, # Moderate inactivity deterrent
-            'action_reward': 0.3,       # NEW: Reward taking actions
+            'action_reward': 0.06,       # NEW: Reward taking actions
         }
 
         # Get inactivity parameters from config
