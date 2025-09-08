@@ -229,15 +229,15 @@ class FixedRewardCalculator:
             action_magnitude = abs(action[0]) + abs(action[1])
             
             # Lower threshold for exploration
-            if action_magnitude > 0.005:  # Much lower than 0.01
-                exploration_reward = min(0.2, action_magnitude * 2)  # Cap the reward
+            if action_magnitude > 0.006:  # Much lower than 0.01
+                exploration_reward = min(0.06, action_magnitude * 1)  # Cap the reward
                 components['exploration_bonus'] = exploration_reward * self.weights['exploration_bonus']
             else:
                 components['exploration_bonus'] = 0.0
 
             # NEW: Action reward (prevents turtling)
             if action_magnitude > 0.001:  # Very low threshold
-                action_reward = min(0.1, action_magnitude)
+                action_reward = min(0.06, action_magnitude)
                 components['action_reward'] = action_reward * self.weights.get('action_reward', 0.0)
             else:
                 components['action_reward'] = 0.0
