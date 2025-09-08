@@ -155,8 +155,8 @@ class FixedRewardCalculator:
             "HIGH_VOLATILITY": {"exploration_bonus": 1.5, "stability": 0.7, "action_reward": 1.3},
             "TRENDING_UP": {"base_return": 1.2, "risk_bonus": 1.3, "drawdown_penalty": 0.8},
             "TRENDING_DOWN": {"base_return": 1.2, "risk_bonus": 1.3, "drawdown_penalty": 0.8},
-            "LOW_VOLATILITY": {"exploration_bonus": 0.8, "stability": 1.4, "action_reward": 0.7},
-            "SIDEWAYS": {"stability": 1.2, "transaction_penalty": 1.2},
+            "LOW_VOLATILITY": {"exploration_bonus": 0.8, "stability": 1.4, "action_reward": 0.6},
+            "SIDEWAYS": {"stability": 1.2, "transaction_penalty": 1.5},
             "UNCERTAIN": {"drawdown_penalty": 1.1, "exploration_bonus": 1.1},
         }
         
