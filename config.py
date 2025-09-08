@@ -401,7 +401,7 @@ class GlobalConfig(BaseModel):
     )
     
     num_workers: int = Field(
-        default_factory=lambda: int(os.getenv('PARALLEL_WORKERS', 4)),
+        default_factory=lambda: int(os.getenv('PARALLEL_WORKERS', 6)),
         ge=1, le=16, description="Number of data loading workers"
     )
     
