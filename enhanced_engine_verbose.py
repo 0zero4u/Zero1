@@ -125,16 +125,16 @@ class FixedRewardCalculator:
         
         # FIXED: Better balanced reward weights based on analysis
         self.weights = reward_weights or {
-            'base_return': 2.3,
+            'base_return': 2.5,
             'risk_adjusted': 0.15,  # REBALANCED: Reduced from 0.4 to 0.15
             'stability': 0.005,
             'transaction_penalty': -0.1,
             'drawdown_penalty': -0.8,
             'position_penalty': -0.05,
             'risk_bonus': 0.05,
-            'exploration_bonus': 0.06,
+            'exploration_bonus': 0.05,
             'inactivity_penalty': -0.2,
-            'action_reward': 0.06,
+            'action_reward': 0.05,
             'frequency_penalty': -0.3,  # NEW: Penalty for hyperactivity
         }
         
