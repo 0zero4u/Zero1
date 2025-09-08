@@ -134,13 +134,13 @@ class FixedRewardCalculator:
 
         # FIXED: Better balanced reward weights that prevent turtling
         self.weights = reward_weights or {
-            'base_return': 3.0,         # Increased to make returns more significant
+            'base_return': 2.3,         # Increased to make returns more significant
             'risk_adjusted': 0.4,       # Reduced from potentially problematic levels
-            'stability': 0.2,           # Reward consistency
+            'stability': 0.01,           # Reward consistency
             'transaction_penalty': -0.1, # Light transaction cost penalty
             'drawdown_penalty': -0.8,   # Reduced harshness
             'position_penalty': -0.05,  # Very light position penalty
-            'risk_bonus': 0.3,          # Reward good risk management
+            'risk_bonus': 0.05,          # Reward good risk management
             'exploration_bonus': 0.06,   # Strong exploration incentive
             'inactivity_penalty': -0.2, # Moderate inactivity deterrent
             'action_reward': 0.06,       # NEW: Reward taking actions
