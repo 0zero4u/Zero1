@@ -1,17 +1,7 @@
 """
 
-FIXED TRAINER (POST-ANALYSIS): Aligned with Dynamic, Market-Aware Reward System
 
-CRITICAL UPDATES:
-1. ✅ OPTUNA HYPERPARAMETERS: The Optuna objective function now includes the new `frequency_penalty`
-   and uses rebalanced weight ranges for all reward components as recommended by the analysis.
-2. ✅ ENVIRONMENT CONFIGURATION: The `_make_env` factory now correctly passes all the new and
-   rebalanced reward weights to the `FixedRewardCalculator` in the engine.
-3. ✅ DEFAULT PARAMETERS: The fallback (non-Optuna) parameter set has been updated to include the
-   new `frequency_penalty` and reflect the rebalanced reward structure.
-4. ✅ CONTINUITY: The trainer is now fully synchronized with the advanced reward logic in `engine.py`,
-   enabling effective optimization of the new dynamic, anti-turtling, and anti-hyperactivity features.
-
+   
 """
 
 import torch
