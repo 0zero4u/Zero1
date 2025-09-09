@@ -130,10 +130,10 @@ class FixedRewardCalculator:
             'risk_adjusted': 0.14,  # REBALANCED: Reduced from 0.4 to 0.15
             'transaction_penalty': -0.1,
             'drawdown_penalty': -0.8,
-            'position_penalty': -0.05,
+            'position_penalty': -0.005,
             'exploration_bonus': 0.0,
             'inactivity_penalty': -0.2,
-            'frequency_penalty': -0.4,  # NEW: Penalty for hyperactivity
+            'frequency_penalty': -0.3,  # NEW: Penalty for hyperactivity
         }
         
         # Get inactivity parameters from config
