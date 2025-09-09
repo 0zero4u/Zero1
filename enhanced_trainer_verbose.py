@@ -429,10 +429,10 @@ class EnhancedFixedTrainer:
                 'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -1.5, -0.6),
                 'reward_weight_position_penalty': trial.suggest_float('reward_weight_position_penalty', -0.1, -0.01),
                 'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.0, 0.0),
-                'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -0.5, -0.15),
+                'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -0.1, -0.4),
                 
                 # NEW: Add frequency penalty to Optuna search space
-                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -0.8, -0.1),
+                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -0.15, -0.4),
                 
                 # Environment parameters
                 'inactivity_grace_period': trial.suggest_int('inactivity_grace_period', 5, 20),
