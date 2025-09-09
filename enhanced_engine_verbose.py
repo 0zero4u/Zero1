@@ -119,7 +119,7 @@ class FixedRewardCalculator:
             'position_penalty': -0.005,
             'exploration_bonus': 0.0,
             'inactivity_penalty': -0.2,
-            'frequency_penalty': -0.3,  # NEW: Penalty for hyperactivity
+            'frequency_penalty': -0.4,  # NEW: Penalty for hyperactivity
         }
         
         # Get inactivity parameters from config
