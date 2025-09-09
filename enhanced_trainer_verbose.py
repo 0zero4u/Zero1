@@ -304,8 +304,8 @@ class EnhancedFixedTrainer:
                         'risk_adjusted': trial_params.get('reward_weight_risk_adjusted', 0.14),
                         'transaction_penalty': trial_params.get('reward_weight_transaction_penalty', -0.1),
                         'drawdown_penalty': trial_params.get('reward_weight_drawdown_penalty', -0.8),
-                        'position_penalty': trial_params.get('reward_weight_position_penalty', -0.05),
-                        'exploration_bonus': trial_params.get('reward_weight_exploration_bonus', 0.06),
+                        'position_penalty': trial_params.get('reward_weight_position_penalty', -0.005),
+                        'exploration_bonus': trial_params.get('reward_weight_exploration_bonus', 0.0),
                         'inactivity_penalty': trial_params.get('reward_weight_inactivity_penalty', -0.2),
                         'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.3),
                     }
