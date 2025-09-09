@@ -306,14 +306,14 @@ class EnhancedFixedTrainer:
                         'position_penalty': trial_params.get('reward_weight_position_penalty', -0.005),
                         'exploration_bonus': trial_params.get('reward_weight_exploration_bonus', 0.0),
                         'inactivity_penalty': trial_params.get('reward_weight_inactivity_penalty', -0.2),
-                        'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.3),
+                        'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.4),
                     }
                     
                     config_overrides = {
                         'strategy': {
                             'max_margin_allocation_pct': trial_params.get('max_margin_allocation_pct', 0.04),
                             'reward_scaling_factor': trial_params.get('reward_scaling_factor', 100.0),
-                            'inactivity_grace_period_steps': trial_params.get('inactivity_grace_period', 10),
+                            'inactivity_grace_period_steps': trial_params.get('inactivity_grace_period', 8),
                             'penalty_ramp_up_steps': trial_params.get('penalty_ramp_up_steps', 20),
                         }
                     }
@@ -422,15 +422,15 @@ class EnhancedFixedTrainer:
                 'reward_scaling_factor': trial.suggest_float('reward_scaling_factor', 50.0, 200.0),
                 
                 # UPDATED & REBALANCED: Reward weight ranges based on analysis
-                'reward_weight_base_return': trial.suggest_float('reward_weight_base_return', 2.2, 5.0),
+                'reward_weight_base_return': trial.suggest_float('reward_weight_base_return', 2.5, 5.0),
                 'reward_weight_transaction_penalty': trial.suggest_float('reward_weight_transaction_penalty', -0.2, -0.05),
                 'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -1.5, -0.6),
-                'reward_weight_position_penalty': trial.suggest_float('reward_weight_position_penalty', -0.1, -0.01),
+                'reward_weight_position_penalty': trial.suggest_float('reward_weight_position_penalty', -0.3, -0.05),
                 'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.0, 0.0),
-                'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -0.4, -0.12),
+                'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -0.7, -0.20),
                 
                 # NEW: Add frequency penalty to Optuna search space
-                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -0.4, -0.15),
+                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -0.6, -0.25),
                 
                 # Environment parameters
                 'inactivity_grace_period': trial.suggest_int('inactivity_grace_period', 5, 20),
