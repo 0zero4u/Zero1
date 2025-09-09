@@ -264,7 +264,7 @@ class EnhancedFixedTrainer:
             logger.info(f"✅ Loaded {len(self.bars_df)} bars for training")
             logger.info(f"✅ Enhanced Fixed Reward System with live monitoring")
             
-            self.num_cpu = min(os.cpu_count(), 8)
+            self.num_cpu = SETTINGS.num_workers
             logger.info(f"🚀 Using {self.num_cpu} parallel environments for training.")
             
             if self.enable_live_monitoring:
