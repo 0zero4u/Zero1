@@ -627,17 +627,17 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_scaling_factor': 100.0,
                 
                 # UPDATED: Balanced reward weights as the new default
-                'reward_weight_base_return': 2.5,
+                'reward_weight_base_return': 2.9,
                 'reward_weight_transaction_penalty': -0.1,
-                'reward_weight_drawdown_penalty': -0.8,
+                'reward_weight_drawdown_penalty': -1.4,
                 'reward_weight_position_penalty': -0.05,
-                'reward_weight_exploration_bonus': 0.06,
-                'reward_weight_inactivity_penalty': -0.2,
+                'reward_weight_exploration_bonus': 0.0,
+                'reward_weight_inactivity_penalty': -1.p,
                 
                 # --- START OF FIX: Increase default frequency penalty ---
                 # The previous default of -0.3 was insufficient. This stronger
                 # penalty will immediately discourage hyperactivity in default runs.
-                'reward_weight_frequency_penalty': -0.4,
+                'reward_weight_frequency_penalty': -1.7,
                 # --- END OF FIX ---
                 'inactivity_grace_period': 10,
                 'penalty_ramp_up_steps': 20,
