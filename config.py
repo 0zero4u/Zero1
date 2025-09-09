@@ -404,7 +404,6 @@ class GlobalConfig(BaseModel):
         default_factory=lambda: int(os.getenv('PARALLEL_WORKERS', 2)),
         ge=1, le=16, description="Number of parallel CPU workers for data processing and environment simulation."
     )
-    )
     
     # Time periods with validation
     in_sample_start: datetime = datetime(2025, 1, 1)
