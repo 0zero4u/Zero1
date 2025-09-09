@@ -632,7 +632,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_weight_drawdown_penalty': -1.4,
                 'reward_weight_position_penalty': -0.05,
                 'reward_weight_exploration_bonus': 0.0,
-                'reward_weight_inactivity_penalty': -1.p,
+                'reward_weight_inactivity_penalty': -1.2,
                 
                 # --- START OF FIX: Increase default frequency penalty ---
                 # The previous default of -0.3 was insufficient. This stronger
