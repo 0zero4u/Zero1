@@ -1,8 +1,3 @@
-# enhanced_evaluator_verbose.py
-
-# REFINED: evaluator.py with Fixed Transformer Backtesting and Corrected Import
-# UPDATED: Now compatible with the high-performance, pre-computed engine.
-# VERBOSE FIX: Now imports from the correct `enhanced_engine_verbose` module.
 
 """
 REFINEMENT: Enhanced Backtesting System with Fixed Transformer Architecture Support
