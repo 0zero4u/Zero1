@@ -117,13 +117,13 @@ class FixedRewardCalculator:
         
         # FIXED: Better balanced reward weights based on analysis
         self.weights = reward_weights or {
-            'base_return': 2.6,
+            'base_return': 2.9,
             'transaction_penalty': -0.1,
-            'drawdown_penalty': -0.8,
+            'drawdown_penalty': -1.4,
             'position_penalty': -0.005,
             'exploration_bonus': 0.0,
-            'inactivity_penalty': -0.2,
-            'frequency_penalty': -0.4,  # NEW: Penalty for hyperactivity
+            'inactivity_penalty': -1.2,
+            'frequency_penalty': -1.7,  # NEW: Penalty for hyperactivity
         }
         
         # Get inactivity parameters from config
