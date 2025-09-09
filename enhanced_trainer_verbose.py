@@ -279,9 +279,9 @@ class EnhancedFixedTrainer:
                     
                     # UPDATED: Pass the full set of reward weights to the engine
                     reward_weights = {
-                        'base_return': trial_params.get('reward_weight_base_return', 2.3),
-                        'risk_adjusted': trial_params.get('reward_weight_risk_adjusted', 0.15),
-                        'stability': trial_params.get('reward_weight_stability', 0.01),
+                        'base_return': trial_params.get('reward_weight_base_return', 2.5),
+                        'risk_adjusted': trial_params.get('reward_weight_risk_adjusted', 0.14),
+                        'stability': trial_params.get('reward_weight_stability', 0.002),
                         'transaction_penalty': trial_params.get('reward_weight_transaction_penalty', -0.1),
                         'drawdown_penalty': trial_params.get('reward_weight_drawdown_penalty', -0.8),
                         'position_penalty': trial_params.get('reward_weight_position_penalty', -0.05),
@@ -405,8 +405,8 @@ class EnhancedFixedTrainer:
                 'reward_scaling_factor': trial.suggest_float('reward_scaling_factor', 50.0, 200.0),
                 
                 # UPDATED & REBALANCED: Reward weight ranges based on analysis
-                'reward_weight_base_return': trial.suggest_float('reward_weight_base_return', 2.0, 5.0),
-                'reward_weight_risk_adjusted': trial.suggest_float('reward_weight_risk_adjusted', 0.05, 0.3),  # REBALANCED
+                'reward_weight_base_return': trial.suggest_float('reward_weight_base_return', 2.0, 6.0),
+                'reward_weight_risk_adjusted': trial.suggest_float('reward_weight_risk_adjusted', 0.002, 0.1),  # REBALANCED
                 'reward_weight_stability': trial.suggest_float('reward_weight_stability', 0.01, 0.2),
                 'reward_weight_transaction_penalty': trial.suggest_float('reward_weight_transaction_penalty', -0.2, -0.05),
                 'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -1.5, -0.3),
