@@ -194,7 +194,8 @@ def run_training(args):
         # --- START OF FIX ---
         # The main training function was renamed from 'train_model_advanced'
         # to 'train_model_fixed' to reflect the new anti-turtling logic.
-        from trainer import train_model_fixed
+        # The import path was corrected from 'trainer' to 'enhanced_trainer_verbose'.
+        from enhanced_trainer_verbose import train_model_fixed
         model_path = train_model_fixed(
             optimization_trials=args.trials,
             final_training_steps=args.steps,
