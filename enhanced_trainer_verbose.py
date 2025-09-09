@@ -424,15 +424,15 @@ class EnhancedFixedTrainer:
                 # UPDATED & REBALANCED: Reward weight ranges based on analysis
                 'reward_weight_base_return': trial.suggest_float('reward_weight_base_return', 2.7, 7.0),
                 'reward_weight_transaction_penalty': trial.suggest_float('reward_weight_transaction_penalty', -0.2, -0.05),
-                'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -1.5, -0.6),
+                'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -3.5, -1.3),
                 'reward_weight_position_penalty': trial.suggest_float('reward_weight_position_penalty', -0.3, -0.05),
                 'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.0, 0.0),
-                'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -0.7, -0.20),
+                'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -2.5, -0.20),
                 
                 # --- START OF FIX: Increase penalty search range ---
                 # The previous range was too weak. This new range allows Optuna to
                 # find a much stronger penalty to discourage hyperactivity.
-                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -1.5, -0.3),
+                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -3.7, -1.2),
                 # --- END OF FIX ---
                 
                 # Environment parameters
