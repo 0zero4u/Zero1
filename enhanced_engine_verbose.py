@@ -111,13 +111,13 @@ class FixedRewardCalculator:
         # --- START OF FIX: Reduce hyperactivity threshold ---
         # The original 0.7 encouraged action on 70% of steps, causing thrashing.
         # 0.1 targets action on 10% of steps, promoting a more patient strategy.
-        self.optimal_action_threshold = 0.15
+        self.optimal_action_threshold = 0.40
         # --- END OF FIX ---
         self.action_frequency_buffer = deque(maxlen=self.action_frequency_window)
         
         # FIXED: Better balanced reward weights based on analysis
         self.weights = reward_weights or {
-            'base_return': 2.3,
+            'base_return': 2.6,
             'transaction_penalty': -0.1,
             'drawdown_penalty': -0.8,
             'position_penalty': -0.005,
