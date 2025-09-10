@@ -1,11 +1,7 @@
 """
 REFINEMENT: Enhanced Backtesting System with Fixed Transformer Architecture Support
 
-Key fix: Removed unnecessary LSTM state handling since Transformers don't have 
-recurrent states that need to be passed between prediction steps.
 
-CRITICAL IMPORT FIX: Updated to import the correctly named `FixedHierarchicalTradingEnvironment`
-from the updated `enhanced_engine_verbose.py` to prevent ImportError during backtesting.
 
 CRITICAL ENGINE COMPATIBILITY FIX: The system now generates and passes the required
 `precomputed_features` DataFrame to the optimized environment constructor.
