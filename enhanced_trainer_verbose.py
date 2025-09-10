@@ -637,7 +637,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 # --- START OF FIX: Increase default frequency penalty ---
                 # The previous default of -0.3 was insufficient. This stronger
                 # penalty will immediately discourage hyperactivity in default runs.
-                'reward_weight_frequency_penalty': 0.3,
+                'reward_weight_frequency_penalty': -0.3,
                 # --- END OF FIX ---
                 'inactivity_grace_period': 10,
                 'penalty_ramp_up_steps': 20,
