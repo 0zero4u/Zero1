@@ -300,13 +300,13 @@ class EnhancedFixedTrainer:
                     
                     # UPDATED: Pass the full set of reward weights to the engine
                     reward_weights = {
-                        'base_return': trial_params.get('reward_weight_base_return', 2.5),
-                        'transaction_penalty': trial_params.get('reward_weight_transaction_penalty', -0.1),
-                        'drawdown_penalty': trial_params.get('reward_weight_drawdown_penalty', -0.8),
-                        'position_penalty': trial_params.get('reward_weight_position_penalty', -0.005),
+                        'base_return': trial_params.get('reward_weight_base_return', 2.9),
+                        'transaction_penalty': trial_params.get('reward_weight_transaction_penalty', -0.08),
+                        'drawdown_penalty': trial_params.get('reward_weight_drawdown_penalty', -0.7),
+                        'position_penalty': trial_params.get('reward_weight_position_penalty', -0.03),
                         'exploration_bonus': trial_params.get('reward_weight_exploration_bonus', 0.0),
-                        'inactivity_penalty': trial_params.get('reward_weight_inactivity_penalty', -0.2),
-                        'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.4),
+                        'inactivity_penalty': trial_params.get('reward_weight_inactivity_penalty', -0.45),
+                        'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.3),
                     }
                     
                     config_overrides = {
@@ -628,16 +628,16 @@ def train_model_fixed(optimization_trials: int = 20,
                 
                 # UPDATED: Balanced reward weights as the new default
                 'reward_weight_base_return': 2.9,
-                'reward_weight_transaction_penalty': -0.1,
-                'reward_weight_drawdown_penalty': -1.4,
-                'reward_weight_position_penalty': -0.05,
+                'reward_weight_transaction_penalty': -0.08,
+                'reward_weight_drawdown_penalty': -0.7,
+                'reward_weight_position_penalty': -0.03,
                 'reward_weight_exploration_bonus': 0.0,
-                'reward_weight_inactivity_penalty': -1.2,
+                'reward_weight_inactivity_penalty': -0.45,
                 
                 # --- START OF FIX: Increase default frequency penalty ---
                 # The previous default of -0.3 was insufficient. This stronger
                 # penalty will immediately discourage hyperactivity in default runs.
-                'reward_weight_frequency_penalty': -1.7,
+                'reward_weight_frequency_penalty': 0.3,
                 # --- END OF FIX ---
                 'inactivity_grace_period': 10,
                 'penalty_ramp_up_steps': 20,
