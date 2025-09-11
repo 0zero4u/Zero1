@@ -321,7 +321,7 @@ class StrategyConfig(BaseModel):
         ]
     )
     
-    sequence_length: int = Field(default=10, ge=5, le=100, description="Sequence length for temporal processing")
+    sequence_length: int = Field(default=200, ge=5, le=100, description="Sequence length for temporal processing")
     
     # Model architecture reference (Transformer-based)
     architecture: ModelArchitectureConfig = Field(default_factory=ModelArchitectureConfig)
