@@ -348,7 +348,7 @@ class EnhancedFixedTrainer:
                         'position_penalty': trial_params.get('reward_weight_position_penalty', -0.03),
                         'exploration_bonus': trial_params.get('reward_weight_exploration_bonus', 0.02),
                         'inactivity_penalty': trial_params.get('reward_weight_inactivity_penalty', -0.45),
-                        'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.28),
+                        'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.27),
                         # --- START OF FIX: Pass new penalty weight from trial params ---
                         'tiny_action_penalty': trial_params.get('reward_weight_tiny_action_penalty', -0.5),
                         # --- END OF FIX ---
