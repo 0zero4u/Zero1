@@ -341,7 +341,7 @@ class EnhancedFixedTrainer:
                     reward_weights = {
                         'base_return': trial_params.get('reward_weight_base_return', 2.9),
                         'transaction_penalty': trial_params.get('reward_weight_transaction_penalty', -0.08),
-                        'drawdown_penalty': trial_params.get('reward_weight_drawdown_penalty', -0.7),
+                        'drawdown_penalty': trial_params.get('reward_weight_drawdown_penalty', -0.4),
                         'position_penalty': trial_params.get('reward_weight_position_penalty', -0.03),
                         'exploration_bonus': trial_params.get('reward_weight_exploration_bonus', 0.02),
                         'inactivity_penalty': trial_params.get('reward_weight_inactivity_penalty', -0.45),
@@ -469,7 +469,7 @@ class EnhancedFixedTrainer:
                 # Reward weights
                 'reward_weight_base_return': trial.suggest_float('reward_weight_base_return', 2.6, 7.0),
                 'reward_weight_transaction_penalty': trial.suggest_float('reward_weight_transaction_penalty', -0.4, -0.05),
-                'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -3.5, -0.6),
+                'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -3.5, -0.4),
                 'reward_weight_position_penalty': trial.suggest_float('reward_weight_position_penalty', -0.3, -0.03),
                 # --- START OF FIX: Constrain exploration bonus search space ---
                 'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.04, 0.25),
@@ -694,7 +694,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_scaling_factor': 140.0,
                 'reward_weight_base_return': 3.0,
                 'reward_weight_transaction_penalty': -0.20,
-                'reward_weight_drawdown_penalty': -2.80,
+                'reward_weight_drawdown_penalty': -0.60,
                 'reward_weight_position_penalty': -0.28,
                 'reward_weight_exploration_bonus': 0.05,
                 'reward_weight_inactivity_penalty': -0.50,
