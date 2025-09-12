@@ -449,7 +449,7 @@ class EnhancedFixedTrainer:
                 'gamma': trial.suggest_float('gamma', 0.95, 0.999),
                 'gae_lambda': trial.suggest_float('gae_lambda', 0.9, 0.99),
                 'clip_range': trial.suggest_float('clip_range', 0.1, 0.3),
-                'ent_coef': trial.suggest_float('ent_coef', 0.005, 0.05, log=True),
+                'ent_coef': trial.suggest_float('ent_coef', 0.04, 0.2, log=True),
                 'max_grad_norm': trial.suggest_float('max_grad_norm', 0.3, 1.0),
                 
                 # Transformer architecture
@@ -459,7 +459,7 @@ class EnhancedFixedTrainer:
                 'transformer_num_layers': trial.suggest_int('transformer_num_layers', 1, 3),
                 'expert_output_dim': trial.suggest_categorical('expert_output_dim', [32, 64]),
                 'attention_features': trial.suggest_categorical('attention_features', [64, 128]),
-                'dropout_rate': trial.suggest_float('dropout_rate', 0.1, 0.35),
+                'dropout_rate': trial.suggest_float('dropout_rate', 0.05, 0.35),
                 'seed': trial.suggest_int('seed', 1, 10000),
                 
                 'leverage': trial.suggest_float('leverage', 5.0, 20.0, step=1.0),
@@ -472,7 +472,7 @@ class EnhancedFixedTrainer:
                 'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -3.5, -0.6),
                 'reward_weight_position_penalty': trial.suggest_float('reward_weight_position_penalty', -0.3, -0.03),
                 # --- START OF FIX: Constrain exploration bonus search space ---
-                'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.02, 0.15),
+                'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.04, 0.25),
                 # --- END OF FIX ---
                 'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -2.5, -0.35),
                 'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -3.7, -0.3),
@@ -673,7 +673,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'gamma': 0.98,
                 'gae_lambda': 0.965,
                 'clip_range': 0.11,
-                'ent_coef': 0.03,
+                'ent_coef': 0.07,
                 'max_grad_norm': 0.90,
                 
                 # Transformer Architecture
@@ -698,7 +698,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_weight_position_penalty': -0.28,
                 'reward_weight_exploration_bonus': 0.05,
                 'reward_weight_inactivity_penalty': -0.50,
-                'reward_weight_frequency_penalty': -0.95,
+                'reward_weight_frequency_penalty': -0.40,
                 
                 # Environment Parameters
                 'inactivity_grace_period': 9,
