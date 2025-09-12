@@ -169,7 +169,7 @@ class FixedRewardCalculator:
             'position_penalty': -0.03,
             'exploration_bonus': 0.02,
             'inactivity_penalty': -0.45,
-            'frequency_penalty': -0.24,
+            'frequency_penalty': -0.8,
             # --- START OF FIX: Add new penalty for tiny, non-committal actions ---
             'tiny_action_penalty': -1.5,
             # --- END OF FIX ---
