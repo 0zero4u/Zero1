@@ -414,7 +414,7 @@ class EnhancedFixedTrainer:
                 gamma=trial_params.get('gamma', 0.99),
                 gae_lambda=trial_params.get('gae_lambda', 0.95),
                 clip_range=trial_params.get('clip_range', 0.2),
-                ent_coef=trial_params.get('ent_coef', 0.01),
+                ent_coef=trial_params.get('ent_coef', 0.1),
                 max_grad_norm=trial_params.get('max_grad_norm', 0.5),
                 policy_kwargs=policy_kwargs,
                 tensorboard_log=SETTINGS.get_tensorboard_path(),
@@ -475,7 +475,7 @@ class EnhancedFixedTrainer:
                 'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.04, 0.25),
                 # --- END OF FIX ---
                 'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -2.5, -0.35),
-                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -3.7, -0.3),
+                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -2.7, -0.25),
                 
                 # Environment parameters
                 'inactivity_grace_period': trial.suggest_int('inactivity_grace_period', 5, 20),
@@ -698,7 +698,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_weight_position_penalty': -0.28,
                 'reward_weight_exploration_bonus': 0.05,
                 'reward_weight_inactivity_penalty': -0.50,
-                'reward_weight_frequency_penalty': -0.30,
+                'reward_weight_frequency_penalty': -0.23,
                 
                 # Environment Parameters
                 'inactivity_grace_period': 9,
