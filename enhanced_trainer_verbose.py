@@ -449,7 +449,7 @@ class EnhancedFixedTrainer:
                 'gamma': trial.suggest_float('gamma', 0.95, 0.999),
                 'gae_lambda': trial.suggest_float('gae_lambda', 0.9, 0.99),
                 'clip_range': trial.suggest_float('clip_range', 0.1, 0.3),
-                'ent_coef': trial.suggest_float('ent_coef', 0.04, 0.2, log=True),
+                'ent_coef': trial.suggest_float('ent_coef', 0.14, 0.5, log=True),
                 'max_grad_norm': trial.suggest_float('max_grad_norm', 0.3, 1.0),
                 
                 # Transformer architecture
@@ -673,7 +673,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'gamma': 0.98,
                 'gae_lambda': 0.965,
                 'clip_range': 0.11,
-                'ent_coef': 0.07,
+                'ent_coef': 0.14,
                 'max_grad_norm': 0.90,
                 
                 # Transformer Architecture
@@ -698,7 +698,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_weight_position_penalty': -0.28,
                 'reward_weight_exploration_bonus': 0.05,
                 'reward_weight_inactivity_penalty': -0.50,
-                'reward_weight_frequency_penalty': -0.40,
+                'reward_weight_frequency_penalty': -0.30,
                 
                 # Environment Parameters
                 'inactivity_grace_period': 9,
