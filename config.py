@@ -327,7 +327,7 @@ class StrategyConfig(BaseModel):
     # --- START OF FIX ---
     # CRITICAL: Reduced default sequence length to prevent multiprocessing pipe errors
     # and corrected the invalid Pydantic validation rule (le=100).
-    sequence_length: int = Field(default=64, ge=5, le=256, description="Sequence length for temporal processing")
+    sequence_length: int = Field(default=150, ge=5, le=256, description="Sequence length for temporal processing")
     # --- END OF FIX ---
     
     # Model architecture reference (Transformer-based)
