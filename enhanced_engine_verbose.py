@@ -1,8 +1,3 @@
---- START OF FILE Zero1-main/enhanced_engine_verbose.py ---
-
-# --- START OF CORRECTED FILE: Zero1-main/enhanced_engine_verbose.py ---
-
-# enhanced_engine_verbose.py
 
 """
 ENHANCED FIXED ENGINE (POST-ANALYSIS): Now with SMART Live Trade Monitoring
@@ -786,4 +781,3 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
         except Exception as e:
             logger.error(f"Error calculating performance metrics: {e}")
             return {'leverage': self.leverage, 'verbose_mode': self.verbose}
-# --- END OF CORRECTED FILE: Zero1-main/enhanced_engine_verbose.py ---
