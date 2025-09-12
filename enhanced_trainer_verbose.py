@@ -1,8 +1,3 @@
---- START OF FILE Zero1-main/enhanced_trainer_verbose.py ---
-
-# --- START OF CORRECTED FILE: Zero1-main/enhanced_trainer_verbose.py ---
-
-# enhanced_trainer_verbose.py
 
 """
 ENHANCED FIXED TRAINER: Now with Live Trade Monitoring Support and Hyperparameter Logging
@@ -736,4 +731,3 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Enhanced fixed training example failed: {e}")
         raise
-# --- END OF CORRECTED FILE: Zero1-main/enhanced_trainer_verbose.py ---
