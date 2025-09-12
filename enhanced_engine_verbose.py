@@ -1,6 +1,3 @@
---- START OF FILE Zero1-main/enhanced_engine_verbose.py ---
-
-# --- START OF CORRECTED FILE: Zero1-main/enhanced_engine_verbose.py ---
 
 # enhanced_engine_verbose.py
 
