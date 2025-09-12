@@ -348,7 +348,7 @@ class EnhancedFixedTrainer:
                         'position_penalty': trial_params.get('reward_weight_position_penalty', -0.03),
                         'exploration_bonus': trial_params.get('reward_weight_exploration_bonus', 0.02),
                         'inactivity_penalty': trial_params.get('reward_weight_inactivity_penalty', -0.45),
-                        'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.3),
+                        'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.28),
                         # --- START OF FIX: Pass new penalty weight from trial params ---
                         'tiny_action_penalty': trial_params.get('reward_weight_tiny_action_penalty', -0.5),
                         # --- END OF FIX ---
@@ -481,9 +481,9 @@ class EnhancedFixedTrainer:
                 'reward_weight_position_penalty': trial.suggest_float('reward_weight_position_penalty', -0.15, -0.03),
                 'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.05, 0.12),
                 'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -1.5, -0.4),
-                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -1.8, -0.30),
+                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -1.8, -0.27),
                 # --- START OF FIX: Add new penalty to Optuna search space ---
-                'reward_weight_tiny_action_penalty': trial.suggest_float('reward_weight_tiny_action_penalty', -1.0, -0.2),
+                'reward_weight_tiny_action_penalty': trial.suggest_float('reward_weight_tiny_action_penalty', -2.0, -0.4),
                 # --- END OF FIX ---
 
                 # Environment Parameters: Encourage patience
@@ -683,7 +683,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_weight_position_penalty': -0.1,
                 'reward_weight_exploration_bonus': 0.08,
                 'reward_weight_inactivity_penalty': -0.8,
-                'reward_weight_frequency_penalty': -0.20,
+                'reward_weight_frequency_penalty': -0.25,
                 'reward_weight_tiny_action_penalty': -0.5,
                 'inactivity_grace_period': 15,
                 'penalty_ramp_up_steps': 30,
