@@ -114,8 +114,8 @@ class FixedRewardCalculator:
         self.action_frequency_window = 100  # Look at last 100 steps
         # --- START OF FIX: Reduce hyperactivity threshold ---
         # The original 0.4 encouraged action on 40% of steps, causing thrashing.
-        # 0.1 targets action on 10% of steps, promoting a more patient strategy.
-        self.optimal_action_threshold = 0.10
+        # 0.1 targets action on 30% of steps, promoting a more patient strategy.
+        self.optimal_action_threshold = 0.30
         # --- END OF FIX ---
         self.action_frequency_buffer = deque(maxlen=self.action_frequency_window)
         
