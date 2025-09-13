@@ -65,10 +65,10 @@ class RewardCalculator:
     def __init__(self, cfg: ExplorationConfig | None = None, weights: Optional[dict] = None):
         self.cfg = cfg or ExplorationConfig()
         self.weights = weights or {
-            'base_return': 8.0,
+            'base_return': 6.0,
             'transaction_penalty': -0.1,
             'drawdown_penalty': -1.2,
-            'exploration_bonus': 0.0, # DISABLED BY DEFAULT FOR SAFETY
+            'exploration_bonus': 0.002, # 
             'tiny_action_penalty': -1.5,
             'frequency_penalty': -0.5,
             'inactivity_penalty': -0.4,
