@@ -707,7 +707,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 # New balanced reward weights to make avoidance loop more costly
                 'reward_weight_base_return': 6.0,
                 'reward_weight_transaction_penalty': -0.1,
-                'reward_weight_drawdown_penalty': -1.2,
+                'reward_weight_drawdown_penalty': -0.9,
                 'reward_weight_position_penalty': -0.05,
                 'reward_weight_exploration_bonus': 0.1,
                 'reward_weight_inactivity_penalty': -0.6,
