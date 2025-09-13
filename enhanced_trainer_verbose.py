@@ -479,7 +479,7 @@ class EnhancedFixedTrainer:
                 'reward_weight_transaction_penalty': trial.suggest_float('reward_weight_transaction_penalty', -2.0, -0.17),
                 'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -3.0, -0.7),
                 'reward_weight_position_penalty': trial.suggest_float('reward_weight_position_penalty', -0.15, -0.03),
-                'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.03, 0.12),
+                'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.002, 0.12),
                 'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -2.5, -0.4),
                 'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -2.8, -0.8),
                 # --- START OF FIX: Add new penalty to Optuna search space ---
