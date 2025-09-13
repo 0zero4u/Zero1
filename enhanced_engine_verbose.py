@@ -71,7 +71,7 @@ class RewardCalculator:
             'base_return': 8.0,
             'transaction_penalty': -0.1,
             'drawdown_penalty': -1.2,
-            'exploration_bonus': 0.0, # DISABLED BY DEFAULT FOR SAFETY
+            'exploration_bonus': 0.002, # DISABLED BY DEFAULT FOR SAFETY
             'tiny_action_penalty': -1.5,
             'frequency_penalty': -0.5,
             'inactivity_penalty': -0.4,
