@@ -164,11 +164,11 @@ class FixedRewardCalculator:
         # FIXED: Better balanced reward weights based on analysis
         self.weights = reward_weights or {
             'base_return': 2.9,
-            'transaction_penalty': -0.2,
-            'drawdown_penalty': -0.6,
+            'transaction_penalty': -0.15,
+            'drawdown_penalty': -0.8,
             'position_penalty': -0.03,
             'exploration_bonus': 0.02,
-            'inactivity_penalty': -0.45,
+            'inactivity_penalty': -0.65,
             'frequency_penalty': -0.8,
             # --- START OF FIX: Add new penalty for tiny, non-committal actions ---
             'tiny_action_penalty': -1.5,
