@@ -193,9 +193,9 @@ class FixedRewardCalculator:
             'transaction_penalty': -0.10,
             'drawdown_penalty': -1.2,
             'position_penalty': -0.05,
-            'exploration_bonus': 0.15,
+            'exploration_bonus': 0.1,
             'inactivity_penalty': -0.40,
-            'frequency_penalty': -0.2,
+            'frequency_penalty': -0.5,
             'tiny_action_penalty': -1.5,
         }
         # --- END OF FIX #1 ---
