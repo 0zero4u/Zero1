@@ -1,32 +1,7 @@
---- START OF FILE Zero1-main/enhanced_trainer_verbose.py ---
+
 
 """
-ENHANCED FIXED TRAINER: Now with Live Trade Monitoring Support and Hyperparameter Logging
-
-This version passes worker_id to environments to enable verbose mode for Worker #0.
-CRITICAL FIX: Added HParamCallback to correctly log hyperparameters to TensorBoard's
-HPARAMS tab, as Stable Baselines 3 does not do this automatically.
-CRITICAL FIX: Optuna objective now uses raw P&L and penalizes intrinsic reward exploitation.
-CRITICAL FIX: Implemented a custom EvalCallback that uses final portfolio value instead of
-        the gamed 'mean_reward', aligning model saving with the true P&L objective.
-CRITICAL FIX: Corrected the implementation of PortfolioValueEvalCallback to manually
-        run the evaluation loop, fixing an AttributeError with 'last_ep_info_buffer'
-        and ensuring the custom metric is properly captured.
-
-CORRECTED: Removed fixed seed from Optuna sampler to allow for true random exploration.
-DIAGNOSTIC FIX: Added dedicated logging for each worker process to capture hidden errors.
-
---- START OF APPLIED FIXES (Based on Analysis) ---
-FIX #3: CRITICAL - The Optuna objective now optimizes for raw, risk-adjusted PnL and
-        explicitly penalizes agents that learn to "game" the intrinsic reward system.
-        This directly targets the "penalty avoidance" loophole.
-FIX #3: CRITICAL - A new PortfolioValueEvalCallback ensures that the "best" model saved
-        during a trial is the one with the highest raw portfolio value (P&L), not the
-        one that is best at gaming the reward signal.
-FIX #3: Tightened Optuna hyperparameter ranges for more efficient and stable optimization.
-FIX #3: Added logic to prune invalid PPO configurations (batch_size > n_steps).
-FIX #1: Updated the default 'best_params' to use the new, superior balanced reward weights.
---- END OF APPLIED FIXES ---
+ 
 """
 
 import torch
