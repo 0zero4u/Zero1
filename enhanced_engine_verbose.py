@@ -189,14 +189,14 @@ class FixedRewardCalculator:
         # These new weights prioritize profitable actions and exploration, while reducing
         # overly harsh penalties that discourage any action (turtling).
         self.weights = reward_weights or {
-            'base_return': 4.5,
+            'base_return': 7.5,
             'transaction_penalty': -0.10,
             'drawdown_penalty': -1.2,
             'position_penalty': -0.05,
             'exploration_bonus': 0.15,
             'inactivity_penalty': -0.40,
-            'frequency_penalty': -0.7,
-            'tiny_action_penalty': -0.5,
+            'frequency_penalty': -0.2,
+            'tiny_action_penalty': -1.5,
         }
         # --- END OF FIX #1 ---
         
