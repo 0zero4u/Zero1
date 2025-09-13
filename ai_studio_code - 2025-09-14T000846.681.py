@@ -417,3 +417,28 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
             return {key: np.stack([obs[key] for obs in self.observation_history]) for key in self.observation_space.spaces.keys()}
         except Exception:
             return {key: np.zeros(space.shape, dtype=np.float32) for key, space in self.observation_space.spaces.items()}
+
+      def get_performance_metrics(self) -> Dict[str, float]:
+        """Get comprehensive performance metrics with fixed reward analysis"""
+        try:
+            if len(self.portfolio_history) < 2: return {}
+            portfolio_values = np.array(self.portfolio_history)
+            initial_value, final_value = portfolio_values[0], portfolio_values[-1]
+            total_return = (final_value - initial_value) / initial_value
+            returns = np.diff(portfolio_values) / portfolio_values[:-1]
+            volatility = np.std(returns) * np.sqrt(252) if len(returns) > 1 else 0.0
+            cumulative_max = np.maximum.accumulate(portfolio_values)
+            drawdowns = (cumulative_max - portfolio_values) / cumulative_max
+            max_drawdown = np.max(drawdowns)
+            sharpe_ratio = (total_return - 0.02) / volatility if volatility > 0 else 0.0
+            win_rate = self.winning_trades / max(self.trade_count, 1)
+            
+            metrics = {
+                'total_return': total_return, 'volatility': volatility, 'max_drawdown': max_drawdown,
+                'sharpe_ratio': sharpe_ratio, 'win_rate': win_rate, 'total_trades': self.trade_count,
+                'final_portfolio_value': final_value, 'leverage': self.leverage, 'verbose_mode': self.verbose
+            }
+            return metrics
+        except Exception as e:
+            logger.error(f"Error calculating performance metrics: {e}")
+            return {'leverage': self.leverage, 'verbose_mode': self.verbose}
