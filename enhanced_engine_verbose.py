@@ -187,7 +187,7 @@ class FixedRewardCalculator:
             'transaction_penalty': -0.10,
             'drawdown_penalty': -1.2,
             'position_penalty': -0.05,
-            'exploration_bonus': 0.15,
+            'exploration_bonus': 0.12,
             'inactivity_penalty': -0.40,
             'frequency_penalty': -0.7,
             'tiny_action_penalty': -0.5,
