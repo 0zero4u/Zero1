@@ -164,7 +164,7 @@ class FixedRewardCalculator:
         # FIXED: Better balanced reward weights based on analysis
         self.weights = reward_weights or {
             'base_return': 2.9,
-            'transaction_penalty': -0.08,
+            'transaction_penalty': -0.2,
             'drawdown_penalty': -0.6,
             'position_penalty': -0.03,
             'exploration_bonus': 0.02,
