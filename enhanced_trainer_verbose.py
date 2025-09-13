@@ -343,11 +343,11 @@ class EnhancedFixedTrainer:
                     
                     reward_weights = {
                         'base_return': trial_params.get('reward_weight_base_return', 2.9),
-                        'transaction_penalty': trial_params.get('reward_weight_transaction_penalty', -0.15),
-                        'drawdown_penalty': trial_params.get('reward_weight_drawdown_penalty', -0.4),
+                        'transaction_penalty': trial_params.get('reward_weight_transaction_penalty', -0.25),
+                        'drawdown_penalty': trial_params.get('reward_weight_drawdown_penalty', -0.8),
                         'position_penalty': trial_params.get('reward_weight_position_penalty', -0.03),
                         'exploration_bonus': trial_params.get('reward_weight_exploration_bonus', 0.02),
-                        'inactivity_penalty': trial_params.get('reward_weight_inactivity_penalty', -0.45),
+                        'inactivity_penalty': trial_params.get('reward_weight_inactivity_penalty', -0.7),
                         'frequency_penalty': trial_params.get('reward_weight_frequency_penalty', -0.9),
                         # --- START OF FIX: Pass new penalty weight from trial params ---
                         'tiny_action_penalty': trial_params.get('reward_weight_tiny_action_penalty', -0.5),
@@ -476,12 +476,12 @@ class EnhancedFixedTrainer:
                 
                 # Rebalanced Reward Weights
                 'reward_weight_base_return': trial.suggest_float('reward_weight_base_return', 3.8, 5.5),
-                'reward_weight_transaction_penalty': trial.suggest_float('reward_weight_transaction_penalty', -2.0, -0.1),
-                'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -2.0, -0.5),
+                'reward_weight_transaction_penalty': trial.suggest_float('reward_weight_transaction_penalty', -2.0, -0.17),
+                'reward_weight_drawdown_penalty': trial.suggest_float('reward_weight_drawdown_penalty', -3.0, -0.7),
                 'reward_weight_position_penalty': trial.suggest_float('reward_weight_position_penalty', -0.15, -0.03),
-                'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.05, 0.12),
-                'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -1.5, -0.4),
-                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -1.8, -0.8),
+                'reward_weight_exploration_bonus': trial.suggest_float('reward_weight_exploration_bonus', 0.03, 0.12),
+                'reward_weight_inactivity_penalty': trial.suggest_float('reward_weight_inactivity_penalty', -2.5, -0.4),
+                'reward_weight_frequency_penalty': trial.suggest_float('reward_weight_frequency_penalty', -2.8, -0.8),
                 # --- START OF FIX: Add new penalty to Optuna search space ---
                 'reward_weight_tiny_action_penalty': trial.suggest_float('reward_weight_tiny_action_penalty', -2.0, -0.4),
                 # --- END OF FIX ---
@@ -678,10 +678,10 @@ def train_model_fixed(optimization_trials: int = 20,
                 'max_margin_allocation_pct': 0.04,
                 'reward_scaling_factor': 200.0,
                 'reward_weight_base_return': 4.5,
-                'reward_weight_transaction_penalty': -0.13,
-                'reward_weight_drawdown_penalty': -1.5,
+                'reward_weight_transaction_penalty': -0.25,
+                'reward_weight_drawdown_penalty': -1.8,
                 'reward_weight_position_penalty': -0.1,
-                'reward_weight_exploration_bonus': 0.08,
+                'reward_weight_exploration_bonus': 0.05,
                 'reward_weight_inactivity_penalty': -0.8,
                 'reward_weight_frequency_penalty': -0.9,
                 'reward_weight_tiny_action_penalty': -0.5,
