@@ -141,9 +141,9 @@ class IndicatorConfig(BaseModel):
     name: str = Field(description="Unique name for this indicator instance, e.g., '20s_roc'")
     cell_class_name: str = Field(description="The name of the class to instantiate from tins.py, e.g., 'ROCCell'")
     params: Dict[str, Any] = Field(default_factory=dict, description="Parameters to pass to the cell's constructor, e.g., {'period': 12}")
-    input_key: FeatureKeys = Field(description="The key from the observation space to use as input for this cell")
+    input_key: str = Field(description="The key from the observation space to use as input for this cell")  # Replace `str` with `FeatureKeys` if that's an Enum
     expert_group: Literal['flow', 'volatility', 'value_trend', 'context', 'precomputed'] = Field(description="The expert group this indicator's output feeds into")
-    input_type: Literage000'price', 'ohlc', 'feature'] = Field(default='price', description="Type of input data expected by the cell")
+    input_type: Literal['price', 'ohlc', 'feature'] = Field(default='price', description="Type of input data expected by the cell")
 
 class StatefulCalculatorConfig(BaseModel):
     """Declarative configuration for a single stateful feature calculator."""
