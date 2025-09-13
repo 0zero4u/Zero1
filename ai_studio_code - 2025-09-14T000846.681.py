@@ -418,27 +418,67 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
         except Exception:
             return {key: np.zeros(space.shape, dtype=np.float32) for key, space in self.observation_space.spaces.items()}
 
-      def get_performance_metrics(self) -> Dict[str, float]:
-        """Get comprehensive performance metrics with fixed reward analysis"""
+
+    def get_performance_metrics(self) -> Dict[str, float]:
+        """
+        Get comprehensive and CORRECTED performance metrics.
+        FIXED:
+        1. Volatility annualization is now correctly based on the bar timeframe.
+        2. Sharpe Ratio now uses correctly annualized returns.
+        3. Replaced non-functional 'win_rate' with a 'positive_period_ratio'.
+        """
         try:
             if len(self.portfolio_history) < 2: return {}
+            
             portfolio_values = np.array(self.portfolio_history)
-            initial_value, final_value = portfolio_values[0], portfolio_values[-1]
-            total_return = (final_value - initial_value) / initial_value
+            initial_value = portfolio_values[0]
+            final_value = portfolio_values[-1]
+            
+            # --- FIX #1: Correct Annualization Factor ---
+            # Calculate the number of bars in a year based on the environment's timeframe
+            base_bar_seconds = self.cfg.get_timeframe_seconds(self.cfg.base_bar_timeframe)
+            bars_per_year = (365 * 24 * 3600) / base_bar_seconds
+            
+            # Calculate periodic returns (e.g., returns for each 20-second bar)
             returns = np.diff(portfolio_values) / portfolio_values[:-1]
-            volatility = np.std(returns) * np.sqrt(252) if len(returns) > 1 else 0.0
+            
+            # Correctly annualize the volatility
+            volatility = np.std(returns) * np.sqrt(bars_per_year) if len(returns) > 1 else 0.0
+
+            # --- FIX #2: Correct Sharpe Ratio Calculation ---
+            # First, calculate the total return and then annualize it
+            total_return = (final_value - initial_value) / initial_value
+            num_periods = len(returns)
+            # Formula for annualizing return: (1 + total_return)^(periods_in_year / num_periods) - 1
+            annualized_return = ((1 + total_return) ** (bars_per_year / num_periods) - 1) if num_periods > 0 else 0.0
+            
+            risk_free_rate = 0.02 # Hardcoded risk-free rate
+            sharpe_ratio = (annualized_return - risk_free_rate) / volatility if volatility > 0 else 0.0
+
+            # --- FIX #3: Replace Broken win_rate with a functional metric ---
+            # Since we don't track individual winning trades, we can calculate the ratio of positive-return periods.
+            positive_periods = np.sum(returns > 0)
+            positive_period_ratio = positive_periods / len(returns) if len(returns) > 0 else 0.0
+
+            # Max Drawdown calculation remains correct
             cumulative_max = np.maximum.accumulate(portfolio_values)
             drawdowns = (cumulative_max - portfolio_values) / cumulative_max
             max_drawdown = np.max(drawdowns)
-            sharpe_ratio = (total_return - 0.02) / volatility if volatility > 0 else 0.0
-            win_rate = self.winning_trades / max(self.trade_count, 1)
             
             metrics = {
-                'total_return': total_return, 'volatility': volatility, 'max_drawdown': max_drawdown,
-                'sharpe_ratio': sharpe_ratio, 'win_rate': win_rate, 'total_trades': self.trade_count,
-                'final_portfolio_value': final_value, 'leverage': self.leverage, 'verbose_mode': self.verbose
+                'total_return': total_return,
+                'annualized_return': annualized_return, # Added for clarity
+                'volatility_annualized': volatility,
+                'max_drawdown': max_drawdown,
+                'sharpe_ratio': sharpe_ratio,
+                'positive_period_ratio': positive_period_ratio, # New, functional metric
+                'total_trades': self.trade_count,
+                'final_portfolio_value': final_value,
+                'leverage': self.leverage,
+                'verbose_mode': self.verbose
             }
             return metrics
+            
         except Exception as e:
             logger.error(f"Error calculating performance metrics: {e}")
             return {'leverage': self.leverage, 'verbose_mode': self.verbose}
