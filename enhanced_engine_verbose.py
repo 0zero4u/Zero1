@@ -1,6 +1,3 @@
---- START OF FILE Zero1-main/enhanced_engine_verbose.py ---
-
-# enhanced_engine_verbose.py (Correctly Patched)
 
 """
 ENHANCED FIXED ENGINE (POST-ANALYSIS): Now with SMART Live Trade Monitoring and Hardened Reward Calculator
