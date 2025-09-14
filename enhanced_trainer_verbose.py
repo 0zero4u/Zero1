@@ -2,23 +2,6 @@
 
 
 """
-REFINED: Trainer with V2 Reward Architecture Integration
-
-This version of the trainer is fully compatible with the new robust reward
-architecture in the environment.
-
---- KEY REFINEMENTS ---
-1.  **Granular Reward Weight Tuning:** The Optuna objective function now tunes
-    each individual reward component weight (pnl, trade_cost, drawdown, etc.),
-    allowing for much finer control over the agent's learning incentives.
-
-2.  **Updated Default Parameters:** The default parameter set for training without
-    optimization has been updated to use the new reward weight keys and balanced
-    default values.
-
-3.  **Enhanced Logging:** The PerformanceMonitoringCallback is fully compatible
-    with the detailed reward breakdown provided by the new RewardManager, enabling
-    deeper insights into the agent's learning process.
 """
 
 import torch
