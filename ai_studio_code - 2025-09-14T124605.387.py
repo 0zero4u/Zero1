@@ -1,25 +1,5 @@
 """
-FULLY UPDATED TRAINER FOR THE HARDENED TRADING ENGINE
-
-This trainer script has been updated to be fully compatible with the new reward
-architecture in `enhanced_engine_verbose`.
-
---- START OF MAJOR CHANGES ---
-FIX #1: Updated PerformanceMonitoringCallback.
-    - The callback now correctly reads the new `info` dictionary keys: `raw_reward_components`
-      and `weighted_rewards`, replacing the old, non-existent keys.
-
-FIX #2: Aligned Reward Weight Hyperparameters.
-    - All reward weight keys in the Optuna objective (`objective` method) and the
-      default parameters (`train_model_fixed` function) have been updated to match
-      the exact keys used by the new `RewardManager` in the environment.
-    - Removed obsolete keys like `reward_weight_position_penalty`.
-
-FIX #3: Hardened Optuna Objective Function.
-    - The objective logic no longer relies on the complex and now-defunct "exploit fraction."
-    - It now directly optimizes for `eval_callback.best_mean_portfolio_value`, which is a
-      cleaner, more direct measure of the agent's P&L performance.
---- END OF MAJOR CHANGES ---
+ 
 """
 
 import torch
