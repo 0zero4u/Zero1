@@ -1,33 +1,5 @@
-# --- START OF FILE Zero1-main/enhanced_engine_verbose.py ---
-
 """
-FULLY CORRECTED AND HARDENED TRADING ENGINE (V2 REWARD ARCHITECTURE)
 
-This definitive version incorporates a state-of-the-art reward architecture alongside
-all previous emergency and high-priority fixes. It is the stable, reliable foundation
-for all future training.
-
---- CRITICAL FIXES APPLIED ---
-1.  **Unrealized PnL Double-Counting ELIMINATED:** PnL is correctly realized only when a
-    position is reduced or flipped, preventing phantom profits.
-
-2.  **Entry Price Calculation CORRECTED:** Robust, sign-aware weighted average calculation ensures
-    accurate PnL for both long and short positions.
-
---- V2 REWARD ARCHITECTURE REFINEMENTS ---
-3.  **Per-Component Normalization IMPLEMENTED:** Replaced the unstable grouped normalizer with a
-    granular system where every reward component is normalized independently. This prevents large
-    signals (like drawdown) from corrupting smaller but crucial signals (like inactivity).
-
-4.  **Input Pre-Transformation APPLIED:** Raw values (e.g., transaction fees) are converted to
-    unitless ratios (e.g., fee as % of trade notional) *before* normalization. This correctly
-    scales penalties to the action's magnitude and prevents reward gaming.
-
-5.  **Robust Normalizer INTRODUCED:** A new `RobustComponentNormalizer` handles clipping, warmup,
-    Z-scoring, and tanh squashing for a maximally stable reward signal.
-
-6.  **Initialization HARDENED:** Critical state variables are safely initialized to prevent
-    errors at the start of an episode.
 """
 
 import numpy as np
