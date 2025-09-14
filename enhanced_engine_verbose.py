@@ -1,28 +1,4 @@
 """
-ENHANCED FIXED ENGINE (POST-ANALYSIS): Now with SMART Live Trade Monitoring and Hardened Reward Calculator
-
-This version integrates a new, hardened RewardCalculator to prevent reward hacking exploits
-related to the exploration bonus. It also refactors penalty calculations into the main
-environment loop for better clarity and control.
-
---- START OF CRITICAL FIXES (From User Analysis) ---
-CRITICAL FIX #1: Corrected the flawed position sizing formula. The action signal (confidence)
-                 is now decoupled from the action size (magnitude). Signal determines
-                 direction (+1/-1), and size determines the position's scale, creating
-                 a stable and learnable action space.
-CRITICAL FIX #2: Implemented proper entry price management. The entry price is no longer
-                 incorrectly reset on every trade. It now correctly averages up when
-                 adding to a position and remains unchanged when reducing, ensuring
-                 accurate PnL calculation and preventing "phantom profits."
-CRITICAL FIX #3 (HARDENED IMPLEMENTATION): Replaced the entire reward calculator with a new,
-                 conservative implementation that prevents all known exploration bonus exploits.
-                 The new bonus requires a significant increase in risk, uses multiple gates,
-                 and rewards reasonable confidence to prevent gaming.
-CRITICAL FIX #4: Added 'volume_delta' to the resampling aggregation rules to prevent
-                 it from being dropped during environment initialization.
-CRITICAL FIX #5: Corrected the exception handling in the observation generation to
-                 prevent an 'AttributeError' on string keys.
---- END OF CRITICAL FIXES ---
 """
 
 import numpy as np
