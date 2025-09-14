@@ -130,7 +130,7 @@ class PerformanceMonitoringCallback(BaseCallback):
         super().__init__(verbose)
 
     def _on_step(self) -> bool:
-        if self.n_calls % 700 == 0 and self.locals.get('infos'):
+        if self.n_calls % 5000 == 0 and self.locals.get('infos'):
             info = self.locals['infos'][0] if self.locals['infos'] else {}
             
             # Log the new V2 reward component structures
