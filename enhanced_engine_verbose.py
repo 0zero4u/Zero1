@@ -1,32 +1,6 @@
 """
-FULLY CORRECTED AND HARDENED TRADING ENGINE
 
-This definitive version incorporates all emergency and high-priority fixes identified
-in the reward system and bug analysis reports. It is the stable, reliable foundation
-for all future training.
 
---- CRITICAL FIXES APPLIED ---
-1.  **Unrealized PnL Double-Counting ELIMINATED:** The showstopper bug that added unrealized PnL
-    to the balance every step has been removed. PnL is now correctly realized only when a
-    position is reduced or flipped, preventing phantom profits and ensuring valid training.
-
-2.  **Entry Price Calculation CORRECTED:** The flawed entry price logic with the `abs()` wrapper has
-    been replaced with a robust, sign-aware weighted average calculation. PnL for both long and
-    short positions is now accurate.
-
-3.  **Reward Normalization REBALANCED:** Replaced the unstable normalization strategy with a new
-    `MultiComponentNormalizer`. It separately normalizes returns, penalties, and bonuses, then
-    combines them with stable weights, preventing reward signal corruption across different
-    market regimes.
-
-4.  **Penalty & Bonus Logic REFINED:**
-    *   **Frequency Penalty:** Simplified to a clear, predictable formula.
-    *   **Exploration Bonus:** Restored full logic with gates to prevent exploitation and
-      fixed the cost-based cap to be a proportional reduction.
-    *   **Tiny Action Penalty:** Logic corrected to trigger reliably.
-
-5.  **Initialization HARDENED:** Critical state variables like `volatility_estimate` are now
-    safely initialized to prevent errors at the start of an episode.
 """
 
 import numpy as np
