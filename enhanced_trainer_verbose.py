@@ -1,4 +1,3 @@
-# --- START OF FILE Zero1-main/enhanced_trainer_verbose.py ---
 
 """
 REFINED: Trainer with V2 Reward Architecture Integration
