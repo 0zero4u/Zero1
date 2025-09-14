@@ -1,35 +1,4 @@
 """
-FULLY OVERHAULED & HARDENED TRADING ENGINE (POST-ANALYSIS)
-
-This version represents a complete architectural overhaul based on a comprehensive analysis
-of critical bugs and design flaws. All identified issues have been resolved.
-
---- START OF MAJOR ARCHITECTURAL CHANGES ---
-CRITICAL FIX #1: PnL Double-Counting ELIMINATED.
-    - The environment now correctly distinguishes between realized and unrealized PnL.
-    - The account balance is ONLY updated with realized PnL when a position is
-      partially or fully closed, eliminating the "infinite money" bug.
-
-CRITICAL FIX #2: Entry Price Calculation CORRECTED.
-    - The flawed `abs()` wrapper has been removed.
-    - The logic now correctly calculates the weighted average entry price when adding to
-      a position (for both longs and shorts) and maintains the entry price when reducing.
-    - Safety checks for division-by-zero are included.
-
-ARCHITECTURAL FIX #3: New Reward System - Per-Component Normalization.
-    - The old, unstable reward logic has been replaced with a modular `RewardManager`.
-    - EVERY reward component (return, fees, penalties) is now normalized independently
-      using a robust `PerComponentNormalizer` class.
-    - This eliminates reward signal instability across different market regimes.
-    - The new normalizer includes warmup periods, clipping, and squashing for stability.
-
-ARCHITECTURAL FIX #4: Exploit-Resistant Reward Shaping.
-    - All raw reward components are first transformed into unitless RATIOS (e.g., fee as a
-      percentage of portfolio value) before being passed to the normalizers.
-    - This prevents agents from gaming the reward system by manipulating the scale of actions.
-    - Complex, opaque penalty calculations (e.g., frequency penalty) have been replaced
-      with simple, predictable, and interpretable logic.
---- END OF MAJOR ARCHITECTURAL CHANGES ---
 """
 
 import numpy as np
