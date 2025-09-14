@@ -389,5 +389,3 @@ if __name__ == "__main__":
         use_wandb=False,
         enable_live_monitoring=True
     )
-
-# --- END OF FILE Zero1-main/enhanced_trainer_verbose.py ---
