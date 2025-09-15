@@ -21,8 +21,7 @@ from features import (
     StatefulBBWPercentRank,
     StatefulPriceDistanceMA,
     StatefulSRDistances,
-    StatefulVWAPDistance,
-)
+    StatefulVWAPDistance,)
 
 logger = logging.getLogger(__name__)
 
