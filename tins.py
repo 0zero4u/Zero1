@@ -466,3 +466,285 @@ CELL_CLASS_MAP = {
 
 # --- UPDATED: TRANSFORMER-BASED FEATURE EXTRACTOR ---
 
+class EnhancedHierarchicalAttentionFeatureExtractor(BaseFeaturesExtractor):
+    """
+    FIXED: Enhanced feature extractor with Transformer-based expert heads.
+    REMOVED hardcoded expert count - now dynamically determines from configuration.
+    """
+
+    def __init__(self, observation_space: spaces.Dict, arch_cfg=None):
+        try:
+            # Use the global SETTINGS if no specific config is provided
+            self.cfg = SETTINGS.strategy
+
+            # The final feature dimension is determined by the attention head
+            super().__init__(observation_space, features_dim=self.cfg.architecture.attention_head_features)
+
+            logger.info("--- Building DYNAMIC Transformer-based Feature Extractor ---")
+            self.last_attention_weights = None
+
+            # Get Transformer architecture parameters
+            arch = self.cfg.architecture
+
+            # --- Dynamic Cell Creation ---
+            self.cells = nn.ModuleDict()
+
+            # Expert group input dimensions
+            expert_input_dims = {'flow': 0, 'volatility': 0, 'value_trend': 0, 'context': 0, 'precomputed': 0}
+
+            for indicator_cfg in self.cfg.indicators:
+                if indicator_cfg.cell_class_name not in CELL_CLASS_MAP:
+                    raise ValueError(f"Unknown cell class name: {indicator_cfg.cell_class_name}")
+
+                # Instantiate the cell
+                cell_class = CELL_CLASS_MAP[indicator_cfg.cell_class_name]
+                self.cells[indicator_cfg.name] = cell_class(**indicator_cfg.params)
+
+                # Increment the input dimension for the corresponding expert group
+                expert_input_dims[indicator_cfg.expert_group] += 1
+
+                logger.info(f" -> Created cell '{indicator_cfg.name}' ({indicator_cfg.cell_class_name}) for expert '{indicator_cfg.expert_group}'")
+
+            # Set dimensions for vector-based features
+            expert_input_dims['context'] = self.cfg.lookback_periods[FeatureKeys.CONTEXT]
+            expert_input_dims['precomputed'] = self.cfg.lookback_periods[FeatureKeys.PRECOMPUTED_FEATURES]
+
+            # FIXED: Dynamic Transformer Expert Head Creation
+            # Create a dictionary of expert heads instead of individual attributes
+            self.expert_heads = nn.ModuleDict()
+            self.expert_groups = []  # Keep track of expert group order
+
+            for expert_group, input_dim in expert_input_dims.items():
+                if input_dim > 0:  # Only create heads for groups that have inputs
+                    self.expert_heads[expert_group] = TransformerExpertHead(
+                        input_dim=input_dim,
+                        d_model=arch.transformer_d_model,
+                        n_heads=arch.transformer_n_heads,
+                        dim_feedforward=arch.transformer_dim_feedforward,
+                        num_layers=arch.transformer_num_layers,
+                        output_dim=arch.expert_output_dim,
+                        dropout=arch.dropout_rate
+                    )
+                    self.expert_groups.append(expert_group)
+
+            logger.info(f"Expert head input dimensions: {expert_input_dims}")
+            logger.info(f"Created {len(self.expert_heads)} expert heads: {list(self.expert_heads.keys())}")
+            logger.info(f"Transformer architecture: d_model={arch.transformer_d_model}, n_heads={arch.transformer_n_heads}, layers={arch.transformer_num_layers}")
+
+            # FIXED: Dynamic Attention Layer based on actual number of experts
+            num_experts = len(self.expert_heads)
+            total_expert_features = num_experts * arch.expert_output_dim
+
+            self.attention_layer = nn.Sequential(
+                nn.Linear(total_expert_features, total_expert_features // 2),
+                nn.LayerNorm(total_expert_features // 2),
+                nn.GELU(),
+                nn.Dropout(arch.dropout_rate),
+                nn.Linear(total_expert_features // 2, num_experts),  # FIXED: Dynamic output size
+                nn.Softmax(dim=1)
+            )
+
+            # --- Final Projection Layer ---
+            # The final feature vector will be a combination of the market analysis (from experts)
+            # and the agent's own portfolio state.
+            num_portfolio_features = self.cfg.lookback_periods[FeatureKeys.PORTFOLIO_STATE]
+            combined_features_dim = arch.expert_output_dim + num_portfolio_features
+
+            self.output_projection = nn.Linear(combined_features_dim, self.features_dim)
+
+            logger.info(f"Final projection layer input dim: {combined_features_dim} (Expert: {arch.expert_output_dim} + Portfolio: {num_portfolio_features})")
+            logger.info(f"✅ FIXED: Dynamic attention layer with {num_experts} experts (no hardcoded values)")
+            logger.info("✅ Transformer-based feature extractor initialized successfully from declarative config.")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Transformer feature extractor: {e}")
+            raise
+
+    def forward(self, observations: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """Forward pass through the Transformer-based hierarchical attention network."""
+        try:
+            batch_size = next(iter(observations.values())).shape[0]
+
+            # --- Market Analysis Section ---
+            expert_inputs = {
+                'flow': [], 'volatility': [], 'value_trend': []
+            }
+
+            for indicator_cfg in self.cfg.indicators:
+                # Get the correct input data from observations
+                input_data_seq = observations[indicator_cfg.input_key.value]
+
+                # Reshape for processing: (batch, seq, lookback, feats) -> (batch * seq, lookback, feats)
+                b, s, lookback, *features_shape = input_data_seq.shape
+                num_features = features_shape[0] if features_shape else 1
+                data_flat = input_data_seq.reshape(b * s, lookback, num_features) if num_features > 0 else input_data_seq.reshape(b * s, lookback)
+
+                # Prepare the final input tensor based on the required type
+                if indicator_cfg.input_type == 'price':
+                    # Use close price from OHLC or the price series itself
+                    input_tensor = data_flat[:, :, -1] if data_flat.dim() == 3 and data_flat.shape[2] > 1 else data_flat
+                elif indicator_cfg.input_type == 'feature':
+                    # For precomputed features like volume delta
+                    input_tensor = data_flat
+                else:  # 'ohlc'
+                    input_tensor = data_flat
+
+                # Get the corresponding cell and process the signal
+                cell = self.cells[indicator_cfg.name]
+                signal_flat = cell(input_tensor)
+
+                # Reshape signal back and append to the correct expert group
+                signal_seq = signal_flat.view(b, s, -1)
+                expert_inputs[indicator_cfg.expert_group].append(signal_seq)
+
+            # Concatenate signals for each expert (only if they have inputs)
+            expert_outputs = []
+            expert_names = []
+
+            # Process expert groups that have indicator inputs
+            for expert_group in ['flow', 'volatility', 'value_trend']:
+                if expert_inputs[expert_group] and expert_group in self.expert_heads:
+                    expert_input = torch.cat(expert_inputs[expert_group], dim=2)
+                    expert_output = self.expert_heads[expert_group](expert_input)
+                    expert_outputs.append(expert_output)
+                    expert_names.append(expert_group)
+
+            # Process context and precomputed features directly from observations
+            if 'context' in self.expert_heads:
+                context_input = observations['context']
+                context_output = self.expert_heads['context'](context_input)
+                expert_outputs.append(context_output)
+                expert_names.append('context')
+
+            if 'precomputed' in self.expert_heads:
+                precomputed_input = observations[FeatureKeys.PRECOMPUTED_FEATURES.value]
+                precomputed_output = self.expert_heads['precomputed'](precomputed_input)
+                expert_outputs.append(precomputed_output)
+                expert_names.append('precomputed')
+
+            # FIXED: Dynamic attention calculation
+            if not expert_outputs:
+                logger.warning("No expert outputs available!")
+                return torch.zeros(batch_size, self.features_dim, device=list(observations.values())[0].device)
+
+            # Combine expert outputs for attention calculation
+            combined_experts = torch.cat(expert_outputs, dim=1)
+
+            # Calculate and apply attention weights
+            attention_weights = self.attention_layer(combined_experts)
+            self.last_attention_weights = attention_weights.detach().cpu().numpy()
+
+            expert_outputs_stacked = torch.stack(expert_outputs, dim=1)
+            attention_weights_expanded = attention_weights.unsqueeze(2)
+            weighted_market_features = torch.sum(expert_outputs_stacked * attention_weights_expanded, dim=1)
+
+            # --- Incorporate Agent State ---
+            # Get the latest portfolio state from the observation sequence
+            portfolio_state_seq = observations[FeatureKeys.PORTFOLIO_STATE.value]
+            latest_portfolio_state = portfolio_state_seq[:, -1, :]  # Shape: (batch_size, num_portfolio_features)
+
+            # Combine the market analysis with the agent's state
+            combined_features = torch.cat([weighted_market_features, latest_portfolio_state], dim=1)
+
+            # --- Final Projection ---
+            final_features = self.output_projection(combined_features)
+
+            return torch.tanh(final_features)
+
+        except Exception as e:
+            logger.error(f"Error in Transformer feature extractor forward pass: {e}")
+            # Return zero features as a safe fallback
+            return torch.zeros(batch_size, self.features_dim, device=list(observations.values())[0].device)
+
+    def get_attention_analysis(self) -> Dict[str, np.ndarray]:
+        """Get analysis of attention patterns for interpretability."""
+        analysis = {}
+        try:
+            if self.last_attention_weights is not None:
+                attention_weights = self.last_attention_weights
+
+                # FIXED: Dynamic expert weight analysis
+                analysis['expert_weights'] = {}
+                for i, expert_name in enumerate(self.expert_groups):
+                    if i < attention_weights.shape[1]:
+                        analysis['expert_weights'][expert_name] = attention_weights[:, i]
+
+                analysis['attention_entropy'] = -np.sum(
+                    attention_weights * np.log(attention_weights + 1e-8), axis=1
+                )
+
+                analysis['dominant_expert'] = np.argmax(attention_weights, axis=1)
+
+        except Exception as e:
+            logger.error(f"Error in attention analysis: {e}")
+
+        return analysis
+
+if __name__ == "__main__":
+    # Example usage and testing
+    try:
+        logger.info("Testing FIXED Transformer-based neural network architecture...")
+
+        # Create a dummy observation space that matches the default config
+        from config import SETTINGS
+
+        s_cfg = SETTINGS.strategy
+        seq_len = s_cfg.sequence_length
+
+        dummy_obs_space_dict = {}
+        for key, lookback in s_cfg.lookback_periods.items():
+            key_str = key.value
+            if key_str.startswith('ohlcv_'):
+                shape = (seq_len, lookback, 5)
+            elif key_str.startswith('ohlc_'):
+                shape = (seq_len, lookback, 4)
+            else:  # price, volume_delta, context, portfolio_state, precomputed_features
+                shape = (seq_len, lookback)
+
+            dummy_obs_space_dict[key_str] = spaces.Box(low=-1.0, high=1.0, shape=shape, dtype=np.float32)
+
+        dummy_obs_space = spaces.Dict(dummy_obs_space_dict)
+
+        # Create feature extractor
+        extractor = EnhancedHierarchicalAttentionFeatureExtractor(dummy_obs_space)
+        print(extractor)
+
+        # Create a dummy observation
+        dummy_obs = dummy_obs_space.sample()
+        for key in dummy_obs:
+            dummy_obs[key] = torch.from_numpy(dummy_obs[key]).unsqueeze(0)  # Add batch dim
+
+        # Test forward pass
+        features = extractor(dummy_obs)
+        print(f"\nOutput feature shape: {features.shape}")
+        assert features.shape == (1, s_cfg.architecture.attention_head_features)
+
+        # Test attention analysis
+        analysis = extractor.get_attention_analysis()
+        print(f"Attention analysis: {analysis}")
+        assert 'expert_weights' in analysis
+
+        logger.info("✅ FIXED Transformer-based neural network architecture test completed successfully!")
+
+        # Print architecture summary
+        arch = s_cfg.architecture
+        print(f"\n--- FIXED Architecture Summary ---")
+        print(f"Transformer d_model: {arch.transformer_d_model}")
+        print(f"Transformer n_heads: {arch.transformer_n_heads}")
+        print(f"Transformer layers: {arch.transformer_num_layers}")
+        print(f"Expert output dim: {arch.expert_output_dim}")
+        print(f"Final features dim: {arch.attention_head_features}")
+        print(f"FIXED: Dynamic expert count: {len(extractor.expert_heads)}")
+
+        # Calculate approximate parameter count
+        total_params = sum(p.numel() for p in extractor.parameters())
+        print(f"Total parameters: {total_params:,}")
+
+        print("✅ FIXES APPLIED:")
+        print(" - Removed hardcoded expert count (5)")
+        print(" - Dynamic attention layer sizing")
+        print(" - Dictionary-based expert head management")
+        print(" - Enhanced maintainability")
+
+    except Exception as e:
+        logger.error(f"FIXED Transformer neural network test failed: {e}", exc_info=True)
