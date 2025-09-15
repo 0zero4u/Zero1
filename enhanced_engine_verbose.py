@@ -248,7 +248,6 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
             logger.exception(f"FATAL ERROR in Worker {worker_id} during environment initialization. This worker will crash.")
             raise e
 
-    # --- (_print_trade_info and _print_episode_start remain the same) ---
     def _print_trade_info(self, trade_type: str, current_price: float, portfolio_value: float, unrealized_pnl: float, reward: float, raw_components: Dict[str, float]):
         if not self.verbose: return
         self.trade_counter += 1
