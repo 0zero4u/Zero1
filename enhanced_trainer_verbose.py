@@ -162,7 +162,7 @@ class WandbCallback(BaseCallback):
             self.wandb_run = wandb.init(project=self.project_name, name=self.experiment_name, config=self.config, reinit=True)
 
     def _on_step(self) -> bool:
-        if self.wandb_run and self.n_calls % 700 == 0:
+        if self.wandb_run and self.n_calls % 500 == 0:
             log_dict = {k: v for k, v in self.logger.name_to_value.items() if isinstance(v, (int, float))}
             if log_dict: wandb.log(log_dict, step=self.n_calls)
         return True
