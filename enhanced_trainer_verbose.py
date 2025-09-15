@@ -66,7 +66,7 @@ class PortfolioValueEvalCallback(EvalCallback):
                 if 'portfolio_value' in infos[0]:
                     portfolio_values.append(infos[0]['portfolio_value'])
                 episode_rewards.append(episode_reward)
-
+            
             mean_portfolio_value = np.mean(portfolio_values) if portfolio_values else 0.0
             mean_reward = np.mean(episode_rewards)
             if self.verbose > 0:
@@ -74,7 +74,7 @@ class PortfolioValueEvalCallback(EvalCallback):
 
             self.logger.record("eval/mean_portfolio_value", mean_portfolio_value)
             self.logger.record("eval/mean_reward", float(mean_reward))
-
+            
             if mean_portfolio_value > self.best_mean_portfolio_value:
                 self.best_mean_portfolio_value = mean_portfolio_value
                 if self.verbose > 0:
@@ -105,6 +105,7 @@ class HParamCallback(BaseCallback):
     def _on_step(self) -> bool: return True
 
 
+# --- START OF MODIFICATION: New Comprehensive Callback ---
 class ComprehensiveLoggingCallback(BaseCallback):
     """
     A powerful callback to log detailed environment statistics, agent behavior,
@@ -130,7 +131,7 @@ class ComprehensiveLoggingCallback(BaseCallback):
             self.logger.record("behavior/total_attempted_trades", info.get("total_attempted_trades", 0))
             self.logger.record("behavior/total_executed_trades", info.get("total_executed_trades", 0))
             self.logger.record("behavior/total_insignificant_trades", info.get("total_insignificant_trades", 0))
-
+            
             # --- Log Performance Metrics ---
             self.logger.record("performance/portfolio_value", info.get("portfolio_value", 0))
             self.logger.record("performance/drawdown", info.get("drawdown", 0))
@@ -142,12 +143,13 @@ class ComprehensiveLoggingCallback(BaseCallback):
             raw_components = info.get('raw_reward_components', {})
             if raw_components:
                 for k, v in raw_components.items(): self.logger.record(f'reward_raw/{k}', v)
-
+            
             weighted_rewards = info.get('weighted_rewards', {})
             if weighted_rewards:
                 for k, v in weighted_rewards.items(): self.logger.record(f'reward_weighted/{k}', v)
 
         return True
+# --- END OF MODIFICATION ---
 
 class WandbCallback(BaseCallback):
     def __init__(self, project_name: str, experiment_name: str, config: Dict, verbose: int = 0):
@@ -171,17 +173,17 @@ class EnhancedFixedTrainer:
         self.base_config = base_config or SETTINGS.dict()
         self.use_wandb = use_wandb and WANDB_AVAILABLE
         self.enable_live_monitoring = enable_live_monitoring
-
+        
         logger.info("🔄 Pre-loading training data...")
         processor = EnhancedDataProcessor(config=SETTINGS)
         self.bars_df = processor.create_enhanced_bars_from_trades("in_sample")
         context_features_df = generate_stateful_features_for_fitting(self.bars_df, SETTINGS.strategy)
         self.all_features_df = pd.merge(self.bars_df, context_features_df, on='timestamp', how='left').ffill().fillna(0.0)
-
+        
         self.normalizer = Normalizer(SETTINGS.strategy)
         self.normalizer.fit(self.bars_df, context_features_df)
         self.normalizer.save(Path(SETTINGS.get_normalizer_path()))
-
+        
         self.num_cpu = SETTINGS.num_workers
         logger.info(f"🚀 Using {self.num_cpu} parallel environments.")
         if self.enable_live_monitoring:
@@ -193,7 +195,6 @@ class EnhancedFixedTrainer:
             reward_weights = None
             if trial_params:
                 leverage = trial_params.get('leverage', 10.0)
-                # --- START OF MODIFICATION: Add new reward component ---
                 reward_weights = {
                     'pnl': trial_params.get('reward_weight_pnl', 1.0),
                     'trade_cost': trial_params.get('reward_weight_trade_cost', 0.5),
@@ -201,10 +202,8 @@ class EnhancedFixedTrainer:
                     'frequency': trial_params.get('reward_weight_frequency', 1.0),
                     'inactivity': trial_params.get('reward_weight_inactivity', 0.2),
                     'tiny_action': trial_params.get('reward_weight_tiny_action', 0.3),
-                    'action_clarity': trial_params.get('reward_weight_action_clarity', 0.1),
                 }
-                # --- END OF MODIFICATION ---
-
+            
             env = FixedHierarchicalTradingEnvironment(
                 df_base_ohlc=self.bars_df, normalizer=self.normalizer, config=SETTINGS,
                 leverage=leverage, reward_weights=reward_weights,
@@ -243,7 +242,6 @@ class EnhancedFixedTrainer:
         if not OPTUNA_AVAILABLE: raise RuntimeError("Optuna not available.")
         vec_env, eval_env = None, None
         try:
-            # --- START OF MODIFICATION: Add new reward weight to Optuna trials ---
             trial_params = {
                 'learning_rate': trial.suggest_float('learning_rate', 5e-5, 5e-4, log=True),
                 'n_steps': trial.suggest_categorical('n_steps', [1024, 2048, 4096]),
@@ -257,39 +255,39 @@ class EnhancedFixedTrainer:
                 'reward_weight_frequency': trial.suggest_float('reward_weight_frequency', 0.2, 1.5),
                 'reward_weight_inactivity': trial.suggest_float('reward_weight_inactivity', 0.05, 0.5),
                 'reward_weight_tiny_action': trial.suggest_float('reward_weight_tiny_action', 0.1, 0.8),
-                'reward_weight_action_clarity': trial.suggest_float('reward_weight_action_clarity', 0.05, 0.4),
             }
-            # --- END OF MODIFICATION ---
             if trial_params['batch_size'] >= trial_params['n_steps']:
                 raise optuna.exceptions.TrialPruned("Batch size must be smaller than n_steps.")
 
             vec_env = SubprocVecEnv([self._make_env(i, trial.number, trial_params=trial_params) for i in range(self.num_cpu)])
             model = self.create_model(trial_params, vec_env)
-
+            
             experiment_name = f"trial_{trial.number}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             log_path = os.path.join(SETTINGS.get_logs_path(), experiment_name)
             model.set_logger(configure(log_path, ["stdout", "csv", "tensorboard"]))
-
+            
             eval_env_raw = self._make_env(rank=0, seed=123, trial_params=trial_params)()
             eval_env_limited = TimeLimit(eval_env_raw, max_episode_steps=5000)
             eval_env = DummyVecEnv([lambda: eval_env_limited])
-
+            
             eval_callback = PortfolioValueEvalCallback(
                 eval_env, best_model_save_path=str(Path(log_path) / "best_model"),
                 log_path=log_path, eval_freq=max(5000 // self.num_cpu, 500),
                 n_eval_episodes=5, deterministic=True, warn=False
             )
-
+            
+            # --- START OF MODIFICATION: Use new ComprehensiveLoggingCallback ---
             callbacks = [
                 eval_callback,
                 HParamCallback(trial, ['eval/mean_portfolio_value']),
                 ComprehensiveLoggingCallback(log_freq=max(5000 // self.num_cpu, 500))
             ]
+            # --- END OF MODIFICATION ---
             if self.use_wandb:
                 callbacks.append(WandbCallback("crypto_trading_v2_reward", experiment_name, trial_params))
-
+            
             model.learn(total_timesteps=30720, callback=callbacks, progress_bar=False)
-
+            
             return eval_callback.best_mean_portfolio_value - 1000000.0
         except optuna.exceptions.TrialPruned as e:
             raise e
@@ -315,13 +313,15 @@ class EnhancedFixedTrainer:
         vec_env = SubprocVecEnv([self._make_env(i, seed=42, trial_params=best_params) for i in range(self.num_cpu)])
         model = self.create_model(best_params, vec_env)
         model.set_logger(configure(SETTINGS.get_logs_path(), ["stdout", "csv", "tensorboard"]))
-
+        
+        # --- START OF MODIFICATION: Use new ComprehensiveLoggingCallback ---
         callbacks = [ComprehensiveLoggingCallback(log_freq=max(5000 // self.num_cpu, 500))]
+        # --- END OF MODIFICATION ---
         if self.use_wandb:
             callbacks.append(WandbCallback("crypto_trading_final_v2_reward", f"final_train_{datetime.now().strftime('%Y%m%d_%H%M%S')}", best_params))
-
+        
         model.learn(total_timesteps=final_training_steps, callback=callbacks, progress_bar=True)
-
+        
         model_path_str = SETTINGS.get_model_path()
         model.save(model_path_str)
         logger.info(f"✅ Final model saved to: {model_path_str}")
@@ -329,19 +329,19 @@ class EnhancedFixedTrainer:
         vec_env.close()
         return model
 
+# --- (train_model_fixed and main block remain the same) ---
 def train_model_fixed(optimization_trials: int = 20,
                      final_training_steps: int = 500000,
                      use_wandb: bool = False,
                      enable_live_monitoring: bool = True) -> str:
     try:
         trainer = EnhancedFixedTrainer(use_wandb=use_wandb, enable_live_monitoring=enable_live_monitoring)
-
+        
         if optimization_trials > 0 and OPTUNA_AVAILABLE:
             study = trainer.optimize(n_trials=optimization_trials)
             best_params = study.best_trial.params if study else {}
         else:
             logger.info("Skipping optimization, using high-quality default parameters.")
-            # --- START OF MODIFICATION: Add new reward weight to default parameters ---
             best_params = {
                 'learning_rate': 3e-4, 'n_steps': 2048, 'batch_size': 128, 'n_epochs': 10,
                 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.01,
@@ -350,10 +350,8 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_weight_pnl': 1.0, 'reward_weight_trade_cost': 0.5,
                 'reward_weight_drawdown': 1.5, 'reward_weight_frequency': 1.0,
                 'reward_weight_inactivity': 0.2, 'reward_weight_tiny_action': 0.3,
-                'reward_weight_action_clarity': 0.1,
             }
-            # --- END OF MODIFICATION ---
-
+        
         trainer.train_best_model(best_params, final_training_steps)
         logger.info(f"🎉 V2 training completed! Model saved to: {trainer.last_saved_model_path}")
         return trainer.last_saved_model_path
@@ -364,11 +362,10 @@ def train_model_fixed(optimization_trials: int = 20,
 if __name__ == "__main__":
     if mp.get_start_method(allow_none=True) is None:
         mp.set_start_method("spawn")
-
+    
     train_model_fixed(
         optimization_trials=10,
         final_training_steps=100000,
         use_wandb=False,
         enable_live_monitoring=True
-)
-                
+        )
