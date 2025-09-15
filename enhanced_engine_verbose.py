@@ -364,7 +364,4 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
             thrashing_ratio = self.total_flips / self.total_executed_trades if self.total_executed_trades > 0 else 0.0
             # --- END OF MODIFICATION ---
 
-            self.action_frequency_buffer.append(1 if is_executed_trade else 0)
-            self.consecutive_inactive_steps = 0 if is_executed_trade else self.consecutive_inactive_steps + 1
-
-            rew
+            
