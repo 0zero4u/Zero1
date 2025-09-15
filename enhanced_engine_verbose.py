@@ -1,5 +1,3 @@
-# --- START OF MODIFIED FILE: Zero1-main/enhanced_engine_verbose.py ---
-# --- (other imports remain the same) ---
 import numpy as np
 import pandas as pd
 import gymnasium
@@ -23,8 +21,7 @@ from features import (
 logger = logging.getLogger(__name__)
 
 
-# --- (Robust Reward Architecture remains the same) ---
-# --- START OF NEW, ROBUST REWARD ARCHITECTURE ---
+# ---  ROBUST REWARD ARCHITECTURE ---
 
 class RobustComponentNormalizer:
     """
@@ -72,12 +69,8 @@ class RewardManager:
     def __init__(self, weights: Dict[str, float]):
         self.weights = weights
         self.normalizers = {key: RobustComponentNormalizer() for key in weights.keys()}
-        # --- START OF FIX ---
-        # Explicitly define which components are penalties. This is the key to closing
-        # the loophole, as we will use this set to ensure these components can never
-        # yield a positive reward after normalization.
         self.penalty_components = {'trade_cost', 'drawdown', 'frequency', 'tiny_action', 'inactivity'}
-        # --- END OF FIX ---
+        
 
     def _calculate_raw_components(self, **kwargs) -> Dict[str, float]:
         """Calculates raw, physical values from the environment step."""
