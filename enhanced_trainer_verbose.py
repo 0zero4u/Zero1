@@ -1,4 +1,3 @@
-
 import torch
 import numpy as np
 import pandas as pd
@@ -121,25 +120,19 @@ class ComprehensiveLoggingCallback(BaseCallback):
             if not infos:
                 return True
 
-            # Use info from the first environment for logging
             info = infos[0]
-
-            # --- Log Behavior Metrics ---
             self.logger.record("behavior/action_magnitude", info.get("action_magnitude", 0))
             self.logger.record("behavior/consecutive_inactive_steps", info.get("consecutive_inactive_steps", 0))
             self.logger.record("behavior/thrashing_ratio", info.get("thrashing_ratio", 0))
             self.logger.record("behavior/total_attempted_trades", info.get("total_attempted_trades", 0))
             self.logger.record("behavior/total_executed_trades", info.get("total_executed_trades", 0))
             self.logger.record("behavior/total_insignificant_trades", info.get("total_insignificant_trades", 0))
-
-            # --- Log Performance Metrics ---
             self.logger.record("performance/portfolio_value", info.get("portfolio_value", 0))
             self.logger.record("performance/drawdown", info.get("drawdown", 0))
             self.logger.record("performance/peak_value", info.get("peak_value", 0))
             self.logger.record("performance/raw_reward", info.get("raw_reward", 0))
             self.logger.record("performance/intrinsic_reward", info.get("intrinsic_reward", 0))
 
-            # --- Log Reward Components for detailed analysis ---
             raw_components = info.get('raw_reward_components', {})
             if raw_components:
                 for k, v in raw_components.items(): self.logger.record(f'reward_raw/{k}', v)
@@ -194,17 +187,19 @@ class EnhancedFixedTrainer:
             reward_weights = None
             if trial_params:
                 leverage = trial_params.get('leverage', 10.0)
-                # --- START OF MODIFICATION: Add new reward component ---
+                # --- START OF REDESIGN: Use redesigned reward weights from trial ---
                 reward_weights = {
-                    'pnl': trial_params.get('reward_weight_pnl', 1.0),
-                    'trade_cost': trial_params.get('reward_weight_trade_cost', 0.5),
+                    'realized_pnl': trial_params.get('reward_weight_realized_pnl', 3.0),
+                    'unrealized_pnl_shaping': trial_params.get('reward_weight_unrealized_pnl_shaping', 0.1),
+                    'trade_cost': trial_params.get('reward_weight_trade_cost', 0.75),
                     'drawdown': trial_params.get('reward_weight_drawdown', 1.5),
+                    'thrashing': trial_params.get('reward_weight_thrashing', 2.0),
                     'frequency': trial_params.get('reward_weight_frequency', 1.0),
                     'inactivity': trial_params.get('reward_weight_inactivity', 0.2),
                     'tiny_action': trial_params.get('reward_weight_tiny_action', 0.3),
-                    'action_clarity': trial_params.get('reward_weight_action_clarity', 0.1),
+                    'action_clarity': trial_params.get('reward_weight_action_clarity', 0.15),
                 }
-                # --- END OF MODIFICATION ---
+                # --- END OF REDESIGN ---
 
             env = FixedHierarchicalTradingEnvironment(
                 df_base_ohlc=self.bars_df, normalizer=self.normalizer, config=SETTINGS,
@@ -244,7 +239,7 @@ class EnhancedFixedTrainer:
         if not OPTUNA_AVAILABLE: raise RuntimeError("Optuna not available.")
         vec_env, eval_env = None, None
         try:
-            # --- START OF MODIFICATION: Add new reward weight to Optuna trials ---
+            # --- START OF REDESIGN: Update Optuna hyperparameter search space ---
             trial_params = {
                 'learning_rate': trial.suggest_float('learning_rate', 5e-5, 5e-4, log=True),
                 'n_steps': trial.suggest_categorical('n_steps', [1024, 2048, 4096]),
@@ -252,15 +247,18 @@ class EnhancedFixedTrainer:
                 'gamma': trial.suggest_float('gamma', 0.97, 0.995),
                 'ent_coef': trial.suggest_float('ent_coef', 0.005, 0.04, log=True),
                 'leverage': trial.suggest_float('leverage', 5.0, 15.0),
-                'reward_weight_pnl': trial.suggest_float('reward_weight_pnl', 0.8, 3.0),
-                'reward_weight_trade_cost': trial.suggest_float('reward_weight_trade_cost', 0.1, 1.0),
-                'reward_weight_drawdown': trial.suggest_float('reward_weight_drawdown', 0.5, 2.0),
+                # New reward weights for optimization
+                'reward_weight_realized_pnl': trial.suggest_float('reward_weight_realized_pnl', 2.0, 5.0),
+                'reward_weight_unrealized_pnl_shaping': trial.suggest_float('reward_weight_unrealized_pnl_shaping', 0.01, 0.2),
+                'reward_weight_trade_cost': trial.suggest_float('reward_weight_trade_cost', 0.5, 1.5),
+                'reward_weight_drawdown': trial.suggest_float('reward_weight_drawdown', 1.0, 2.5),
+                'reward_weight_thrashing': trial.suggest_float('reward_weight_thrashing', 1.0, 3.0),
                 'reward_weight_frequency': trial.suggest_float('reward_weight_frequency', 0.2, 1.5),
                 'reward_weight_inactivity': trial.suggest_float('reward_weight_inactivity', 0.05, 0.5),
                 'reward_weight_tiny_action': trial.suggest_float('reward_weight_tiny_action', 0.1, 0.8),
                 'reward_weight_action_clarity': trial.suggest_float('reward_weight_action_clarity', 0.05, 0.4),
             }
-            # --- END OF MODIFICATION ---
+            # --- END OF REDESIGN ---
             if trial_params['batch_size'] >= trial_params['n_steps']:
                 raise optuna.exceptions.TrialPruned("Batch size must be smaller than n_steps.")
 
@@ -287,7 +285,7 @@ class EnhancedFixedTrainer:
                 ComprehensiveLoggingCallback(log_freq=max(5000 // self.num_cpu, 500))
             ]
             if self.use_wandb:
-                callbacks.append(WandbCallback("crypto_trading_v2_reward", experiment_name, trial_params))
+                callbacks.append(WandbCallback("crypto_trading_v3_redesigned", experiment_name, trial_params))
 
             model.learn(total_timesteps=30720, callback=callbacks, progress_bar=False)
 
@@ -319,7 +317,7 @@ class EnhancedFixedTrainer:
 
         callbacks = [ComprehensiveLoggingCallback(log_freq=max(5000 // self.num_cpu, 500))]
         if self.use_wandb:
-            callbacks.append(WandbCallback("crypto_trading_final_v2_reward", f"final_train_{datetime.now().strftime('%Y%m%d_%H%M%S')}", best_params))
+            callbacks.append(WandbCallback("crypto_trading_final_v3_redesigned", f"final_train_{datetime.now().strftime('%Y%m%d_%H%M%S')}", best_params))
 
         model.learn(total_timesteps=final_training_steps, callback=callbacks, progress_bar=True)
 
@@ -342,21 +340,27 @@ def train_model_fixed(optimization_trials: int = 20,
             best_params = study.best_trial.params if study else {}
         else:
             logger.info("Skipping optimization, using high-quality default parameters.")
-            # --- START OF MODIFICATION: Add new reward weight to default parameters ---
+            # --- START OF REDESIGN: Update default parameters for the new reward structure ---
             best_params = {
                 'learning_rate': 3e-4, 'n_steps': 2048, 'batch_size': 128, 'n_epochs': 10,
                 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.01,
                 'max_grad_norm': 0.5, 'transformer_d_model': 64, 'transformer_n_heads': 4,
                 'transformer_num_layers': 2, 'dropout_rate': 0.1, 'seed': 42, 'leverage': 10.0,
-                'reward_weight_pnl': 1.0, 'reward_weight_trade_cost': 0.5,
-                'reward_weight_drawdown': 1.5, 'reward_weight_frequency': 1.0,
-                'reward_weight_inactivity': 0.2, 'reward_weight_tiny_action': 0.3,
-                'reward_weight_action_clarity': 0.1,
+                # Redesigned default reward weights
+                'reward_weight_realized_pnl': 3.0,
+                'reward_weight_unrealized_pnl_shaping': 0.1,
+                'reward_weight_trade_cost': 0.75,
+                'reward_weight_drawdown': 1.5,
+                'reward_weight_thrashing': 2.0,
+                'reward_weight_frequency': 1.0,
+                'reward_weight_inactivity': 0.2,
+                'reward_weight_tiny_action': 0.3,
+                'reward_weight_action_clarity': 0.15,
             }
-            # --- END OF MODIFICATION ---
+            # --- END OF REDESIGN ---
 
         trainer.train_best_model(best_params, final_training_steps)
-        logger.info(f"🎉 V2 training completed! Model saved to: {trainer.last_saved_model_path}")
+        logger.info(f"🎉 V3 (Redesigned Reward) training completed! Model saved to: {trainer.last_saved_model_path}")
         return trainer.last_saved_model_path
     except Exception as e:
         logger.exception("FATAL UNHANDLED ERROR in the main training pipeline. The program will now exit.")
@@ -372,4 +376,3 @@ if __name__ == "__main__":
         use_wandb=False,
         enable_live_monitoring=True
 )
-                
