@@ -1,3 +1,5 @@
+
+
 import numpy as np
 import pandas as pd
 import gymnasium
@@ -21,7 +23,7 @@ from features import (
 logger = logging.getLogger(__name__)
 
 
-# ---  ROBUST REWARD ARCHITECTURE ---
+# --- REDESIGNED, ROBUST REWARD ARCHITECTURE ---
 
 class RobustComponentNormalizer:
     """
@@ -69,15 +71,23 @@ class RewardManager:
     def __init__(self, weights: Dict[str, float]):
         self.weights = weights
         self.normalizers = {key: RobustComponentNormalizer() for key in weights.keys()}
-        self.penalty_components = {'trade_cost', 'drawdown', 'frequency', 'tiny_action', 'inactivity'}
-        
+        # --- START OF REDESIGN ---
+        # Added 'thrashing' to the set of penalties.
+        self.penalty_components = {'trade_cost', 'drawdown', 'frequency', 'tiny_action', 'inactivity', 'thrashing'}
+        # --- END OF REDESIGN ---
 
     def _calculate_raw_components(self, **kwargs) -> Dict[str, float]:
         """Calculates raw, physical values from the environment step."""
         components = {}
         initial_value = max(kwargs.get('initial_portfolio_value', 1e-9), 1e-9)
         
-        components['pnl'] = (kwargs['next_portfolio_value'] - initial_value)
+        # --- START OF REDESIGN ---
+        # Renamed 'pnl' to 'unrealized_pnl_shaping' to clarify its role.
+        # Added new 'realized_pnl' and 'thrashing' components.
+        components['unrealized_pnl_shaping'] = (kwargs['next_portfolio_value'] - initial_value)
+        components['realized_pnl'] = kwargs.get('realized_pnl', 0.0)
+        # --- END OF REDESIGN ---
+        
         components['trade_cost'] = kwargs.get('total_cost', 0.0)
         components['drawdown'] = kwargs.get('drawdown', 0.0)
         components['inactivity_steps'] = kwargs.get('consecutive_inactive_steps', 0)
@@ -98,6 +108,15 @@ class RewardManager:
         # Action clarity bonus - rewards decisive actions to break turtling behavior
         components['action_clarity'] = 0.1 if action_size > 0.25 else 0.0
 
+        # --- START OF REDESIGN ---
+        # Added explicit thrashing penalty calculation.
+        thrashing_ratio = kwargs.get('thrashing_ratio', 0.0)
+        if thrashing_ratio > 0.4:  # Penalize when more than 40% of trades are flips
+            components['thrashing'] = (thrashing_ratio - 0.4)**2
+        else:
+            components['thrashing'] = 0.0
+        # --- END OF REDESIGN ---
+
         return components
 
     def _transform_to_ratios(self, raw_components: Dict[str, float], **kwargs) -> Dict[str, float]:
@@ -108,13 +127,20 @@ class RewardManager:
         """
         ratios = {}
         initial_value = max(kwargs.get('initial_portfolio_value', 1e-9), 1e-9)
-        trade_notional = abs(kwargs.get('trade_quantity', 0.0) * kwargs.get('current_price', 0.0))
 
-        ratios['pnl'] = raw_components['pnl'] / initial_value
-        ratios['trade_cost'] = -raw_components['trade_cost'] / (trade_notional + self.normalizers['trade_cost'].epsilon)
+        # --- START OF REDESIGN ---
+        # Renamed 'pnl', added 'realized_pnl', added 'thrashing', and fixed 'trade_cost'.
+        ratios['unrealized_pnl_shaping'] = raw_components['unrealized_pnl_shaping'] / initial_value
+        ratios['realized_pnl'] = raw_components['realized_pnl'] / initial_value
+        
+        # CRITICAL FIX: Make trade cost relative to portfolio value, not trade notional.
+        ratios['trade_cost'] = -raw_components['trade_cost'] / (initial_value + self.normalizers['trade_cost'].epsilon)
+        
         ratios['drawdown'] = -raw_components['drawdown']
         ratios['frequency'] = -raw_components['frequency']
         ratios['tiny_action'] = -raw_components['tiny_action']
+        ratios['thrashing'] = -raw_components['thrashing']
+        # --- END OF REDESIGN ---
         
         inactivity_penalty = 0.0
         if raw_components['inactivity_steps'] > 10:
@@ -136,22 +162,12 @@ class RewardManager:
             if key in transformed_ratios and transformed_ratios[key] != 0:
                 norm_value = self.normalizers[key].normalize(transformed_ratios[key])
 
-                # --- START OF CRITICAL FIX ---
-                # This is the core of the fix. It applies two rules:
-                # 1. If a component is a designated penalty, it can never be positive.
-                # 2. Specifically for PnL, if the underlying PnL was negative, the
-                #    normalized reward component can also never be positive. This
-                #    prevents the agent from being rewarded for "less bad" losses.
-
+                # --- START OF CRITICAL FIX (ADAPTED FOR REDESIGN) ---
                 # Rule 1: Handle designated penalties
-                # as a penalty, we ensure its final normalized value can never be
-                # positive. This prevents the agent from gaming the Z-score normalizer
-                # by being "less bad" than its own average. A penalty is now
-                # always a penalty (i.e., less than or equal to zero).
                 if key in self.penalty_components:
                     norm_value = min(0.0, norm_value)
-                # Rule 2: Explicitly handle the PnL component to close the gaming loophole
-                elif key == 'pnl' and transformed_ratios['pnl'] < 0:
+                # Rule 2: Apply anti-gaming logic to the SHAPING reward only
+                elif key == 'unrealized_pnl_shaping' and transformed_ratios['unrealized_pnl_shaping'] < 0:
                     norm_value = min(0.0, norm_value)
                 # --- END OF CRITICAL FIX ---
 
@@ -171,8 +187,8 @@ class RewardManager:
         }
         return final_reward, info
 
-# --- END OF NEW, ROBUST REWARD ARCHITECTURE ---
-# --- (EnhancedRiskManager remains the same) ---
+# --- END OF REDESIGNED REWARD ARCHITECTURE ---
+
 class EnhancedRiskManager:
     """Advanced risk management system with dynamic limits and progressive penalties"""
     def __init__(self, config, leverage: float = 10.0):
@@ -201,7 +217,7 @@ class EnhancedRiskManager:
 
 
 class FixedHierarchicalTradingEnvironment(gymnasium.Env):
-    """FULLY CORRECTED Trading environment with hardened PnL, entry price, and V2 reward logic."""
+    """FULLY CORRECTED Trading environment with hardened PnL, entry price, and REDESIGNED reward logic."""
     def __init__(self, df_base_ohlc: pd.DataFrame, normalizer: Normalizer, config=None,
                  leverage: float = None, reward_weights: Dict[str, float] = None,
                  precomputed_features: Optional[pd.DataFrame] = None,
@@ -215,23 +231,25 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
             
             self.risk_manager = EnhancedRiskManager(self.cfg, leverage=self.leverage)
             
-            # --- V2 REWARD SYSTEM INTEGRATION ---
+            # --- REWARD SYSTEM INTEGRATION ---
             default_reward_weights = {
-                'pnl': 1.0,
-                'trade_cost': 0.5,
+                # --- START OF REDESIGN: New default weights ---
+                'realized_pnl': 3.0,             # High weight for the primary goal
+                'unrealized_pnl_shaping': 0.1,   # Low weight for the shaping reward
+                'trade_cost': 0.75,
                 'drawdown': 1.5,
+                'thrashing': 2.0,                # High weight to punish flip-flopping
                 'frequency': 1.0,
                 'inactivity': 0.2,
                 'tiny_action': 0.3,
-                'action_clarity': 0.15,  # Bonus for clear, decisive actions
+                'action_clarity': 0.15,
+                # --- END OF REDESIGN ---
             }
             final_reward_weights = reward_weights if reward_weights is not None else default_reward_weights
             self.reward_manager = RewardManager(weights=final_reward_weights)
             
             self.action_frequency_buffer = deque(maxlen=100)
-            # --- START OF MODIFICATION: Add buffer for thrashing calculation ---
             self.position_history_buffer = deque(maxlen=20)
-            # --- END OF MODIFICATION ---
             
             base_df = df_base_ohlc.set_index('timestamp')
             all_required_freqs = set(k.value.split('_')[-1].replace('m','T').replace('h','H').replace('s','S').upper() for k in self.strat_cfg.lookback_periods.keys() if k not in {FeatureKeys.CONTEXT, FeatureKeys.PORTFOLIO_STATE, FeatureKeys.PRECOMPUTED_FEATURES}).union({c.timeframe for c in self.strat_cfg.stateful_calculators})
@@ -291,13 +309,11 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
             
             action_signal, action_size = np.clip(action[0], -1.0, 1.0), np.clip(action[1], 0.0, 1.0)
             
-            # --- START OF MODIFICATION: Track action and trade stats ---
             action_magnitude = abs(action_signal) * action_size
             if action_size >= 0.01:
                 self.total_attempted_trades += 1
             elif 0 < action_size < 0.01:
                 self.total_insignificant_trades += 1
-            # --- END OF MODIFICATION ---
 
             target_asset_quantity = 0.0
             if action_size >= 0.01:
@@ -340,7 +356,6 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
 
             self.portfolio_history.append(next_portfolio_value)
 
-            # --- START OF MODIFICATION: Track executed trades and thrashing ---
             is_executed_trade = abs(trade_quantity) > 1e-8
             if is_executed_trade:
                 self.total_executed_trades += 1
@@ -351,197 +366,4 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
                         self.total_flips += 1
                 self.position_history_buffer.append(current_position_sign)
             
-            thrashing_ratio = self.total_flips / self.total_executed_trades if self.total_executed_trades > 0 else 0.0
-            # --- END OF MODIFICATION ---
-
-            self.action_frequency_buffer.append(1 if is_executed_trade else 0)
-            self.consecutive_inactive_steps = 0 if is_executed_trade else self.consecutive_inactive_steps + 1
-
-            reward, reward_info = self.reward_manager.calculate_final_reward(
-                initial_portfolio_value=initial_portfolio_value,
-                next_portfolio_value=next_portfolio_value,
-                total_cost=total_cost,
-                trade_quantity=trade_quantity,
-                current_price=current_price,
-                drawdown=current_drawdown,
-                action=action,
-                action_frequency_buffer=self.action_frequency_buffer,
-                consecutive_inactive_steps=self.consecutive_inactive_steps,
-            )
-
-            raw_components_for_print = reward_info.get('weighted_rewards', {})
-            if self.verbose and is_executed_trade:
-                self._print_trade_info("TRADE", current_price, next_portfolio_value, next_unrealized_pnl, reward, raw_components_for_print)
-
-            self.observation_history.append(self._get_single_step_observation(self.current_step))
-            terminated = next_portfolio_value <= self.initial_balance * (1.0 - self.strat_cfg.max_drawdown_threshold)
-            truncated = self.current_step >= self.max_step
-            
-            # --- START OF MODIFICATION: Add detailed stats to info dictionary ---
-            info = {
-                'portfolio_value': next_portfolio_value,
-                **reward_info,
-                # Behavior metrics
-                'action_magnitude': action_magnitude,
-                'consecutive_inactive_steps': self.consecutive_inactive_steps,
-                'thrashing_ratio': thrashing_ratio,
-                'total_attempted_trades': self.total_attempted_trades,
-                'total_executed_trades': self.total_executed_trades,
-                'total_insignificant_trades': self.total_insignificant_trades,
-                # Performance metrics
-                'drawdown': current_drawdown,
-                'peak_value': self.episode_peak_value,
-                'raw_reward': reward,
-                'intrinsic_reward': reward_info.get('transformed_ratios', {}).get('pnl', 0.0)
-            }
-            # --- END OF MODIFICATION ---
-            return self._get_observation_sequence(), reward, terminated, truncated, info
-        except Exception as e:
-            logger.exception(f"FATAL ERROR in Worker {self.worker_id} on step {self.current_step}. This worker will crash.")
-            raise e
-
-    def reset(self, seed=None, options=None):
-        try:
-            super().reset(seed=seed)
-            self.initial_balance = 1000000.0
-            self.balance = self.initial_balance
-            self.asset_held, self.entry_price = 0.0, 0.0
-            self.episode_peak_value = self.balance
-            
-            # --- START OF MODIFICATION: Reset new stat counters ---
-            self.consecutive_inactive_steps = 0
-            self.total_attempted_trades = 0
-            self.total_executed_trades = 0
-            self.total_insignificant_trades = 0
-            self.total_flips = 0
-            self.position_history_buffer.clear()
-            # --- END OF MODIFICATION ---
-
-            self.volatility_estimate = 0.01
-            self.market_regime = "UNCERTAIN"
-            
-            self.portfolio_history = [self.initial_balance]
-            
-            self.trade_counter = 0
-            
-            warmup_period = self.cfg.get_required_warmup_period()
-            start_step_range = (warmup_period, self.max_step - 5000)
-            if options and 'start_step' in options:
-                self.current_step = max(start_step_range[0], min(options['start_step'], start_step_range[1]))
-            else:
-                self.current_step = self.np_random.integers(start_step_range[0], start_step_range[1]) if start_step_range[0] < start_step_range[1] else start_step_range[0]
-            
-            self.observation_history.clear()
-            for i in range(self.strat_cfg.sequence_length):
-                step_idx = self.current_step - self.strat_cfg.sequence_length + 1 + i
-                self._update_market_regime_and_volatility(step_idx)
-                self.observation_history.append(self._get_single_step_observation(step_idx))
-            
-            self._print_episode_start()
-            return self._get_observation_sequence(), {
-                'portfolio_value': self.balance,
-                'balance': self.balance,
-                'asset_held': self.asset_held
-            }
-        except Exception as e:
-            logger.exception(f"FATAL ERROR in Worker {getattr(self, 'worker_id', 'N/A')} during environment reset. This worker will crash.")
-            raise e
-
-    # --- (All other methods remain the same) ---
-    def _get_current_context_features(self, step_index: int) -> np.ndarray:
-        return np.array([self.all_features_np[key][step_index] for key in self.strat_cfg.context_feature_keys], dtype=np.float32)
-
-    def _update_market_regime_and_volatility(self, step_index: int):
-        try:
-            if step_index >= 50:
-                prices = self.timeframes_np[self.cfg.base_bar_timeframe.value]['close'][max(0, step_index - 50) : step_index + 1]
-                returns = pd.Series(prices).pct_change().dropna().values
-                if len(returns) > 10:
-                    base_bar_seconds = self.cfg.get_timeframe_seconds(self.cfg.base_bar_timeframe)
-                    bars_per_day = (24 * 3600) / base_bar_seconds
-                    annualization_factor = np.sqrt(bars_per_day)
-                    self.volatility_estimate = np.std(returns) * annualization_factor
-                    self.risk_manager.volatility_buffer.append(self.volatility_estimate)
-                    self.market_regime = self.risk_manager.update_market_regime(returns, self.volatility_estimate)
-        except Exception as e:
-            logger.warning(f"Error updating market regime at step {step_index}: {e}")
-
-    def _get_single_step_observation(self, step_index) -> dict:
-        try:
-            raw_obs = {}
-            current_price = self.timeframes_np[self.cfg.base_bar_timeframe.value]['close'][step_index]
-            for key_enum, lookback in self.strat_cfg.lookback_periods.items():
-                key = key_enum.value
-                if key in [FeatureKeys.CONTEXT.value, FeatureKeys.PORTFOLIO_STATE.value, FeatureKeys.PRECOMPUTED_FEATURES.value]: continue
-                freq = key.split('_')[-1].replace('m','T').replace('h','H').replace('s', 'S').upper()
-                
-                if key.startswith('ohlc'):
-                    cols = ['open','high','low','close','volume'] if 'v' in key else ['open','high','low','close']
-                    window_data = np.stack([self.timeframes_np[freq][c][max(0, step_index - lookback + 1) : step_index + 1] for c in cols], axis=1)
-                else:
-                    col_name = 'volume_delta' if 'volume_delta' in key else 'close'
-                    window_data = self.timeframes_np[freq][col_name][max(0, step_index - lookback + 1) : step_index + 1]
-                
-                if len(window_data) < lookback: window_data = np.pad(window_data, [(lookback - len(window_data), 0)] + [(0,0)]*(window_data.ndim-1), 'edge')
-                raw_obs[key] = window_data.astype(np.float32)
-            
-            raw_obs[FeatureKeys.CONTEXT.value] = self._get_current_context_features(step_index)
-            raw_obs[FeatureKeys.PRECOMPUTED_FEATURES.value] = np.array([self.all_features_np[k][step_index] for k in self.strat_cfg.precomputed_feature_keys], dtype=np.float32)
-            
-            unrealized_pnl = self.asset_held * (current_price - self.entry_price)
-            portfolio_value = self.balance + unrealized_pnl
-            position_value = self.asset_held * current_price
-            
-            raw_obs[FeatureKeys.PORTFOLIO_STATE.value] = np.array([
-                np.clip(position_value / (portfolio_value + 1e-9), -self.leverage, self.leverage),
-                np.tanh(unrealized_pnl / (portfolio_value + 1e-9)),
-                self.risk_manager.get_volatility_percentile(self.volatility_estimate),
-                (self.episode_peak_value - portfolio_value) / max(self.episode_peak_value, 1e-9)
-            ], dtype=np.float32)
-            
-            return self.normalizer.transform(raw_obs)
-        except Exception as e:
-            logger.exception(f"FATAL ERROR in Worker {self.worker_id} getting observation at step {step_index}. This worker will crash.")
-            raise e
-
-    def _get_observation_sequence(self):
-        try:
-            return {key: np.stack([obs[key] for obs in self.observation_history]) for key in self.observation_space.spaces.keys()}
-        except Exception as e:
-            logger.exception(f"FATAL ERROR in Worker {self.worker_id} stacking observation sequence. This is a primary suspect for pipe errors if observation is too large.")
-            raise e
-
-    def get_performance_metrics(self) -> Dict[str, Any]:
-        try:
-            if len(self.portfolio_history) < 2: return {}
-            portfolio_values = np.array(self.portfolio_history)
-            initial_value = portfolio_values[0]
-            final_value = portfolio_values[-1]
-            base_bar_seconds = self.cfg.get_timeframe_seconds(self.cfg.base_bar_timeframe)
-            bars_per_year = (365 * 24 * 3600) / base_bar_seconds
-            returns = np.diff(portfolio_values) / portfolio_values[:-1]
-            volatility = np.std(returns) * np.sqrt(bars_per_year) if len(returns) > 1 else 0.0
-            total_return = (final_value - initial_value) / initial_value
-            num_periods = len(returns)
-            annualized_return = ((1 + total_return) ** (bars_per_year / num_periods) - 1) if num_periods > 0 else 0.0
-            risk_free_rate = 0.02
-            sharpe_ratio = (annualized_return - risk_free_rate) / volatility if volatility > 0 else 0.0
-            positive_periods = np.sum(returns > 0)
-            positive_period_ratio = positive_periods / len(returns) if len(returns) > 0 else 0.0
-            cumulative_max = np.maximum.accumulate(portfolio_values)
-            drawdowns = (cumulative_max - portfolio_values) / cumulative_max
-            max_drawdown = np.max(drawdowns) if len(drawdowns) > 0 else 0.0
-            metrics = {
-                'total_return': total_return,
-                'annualized_return': annualized_return,
-                'volatility_annualized': volatility,
-                'max_drawdown': max_drawdown,
-                'sharpe_ratio': sharpe_ratio,
-                'positive_period_ratio': positive_period_ratio,
-                'final_portfolio_value': final_value,
-            }
-            return metrics
-        except Exception as e:
-            logger.error(f"Error calculating performance metrics: {e}")
-            return {}
-# --- END OF MODIFIED FILE ---
+            thrashing_ratio = self.total_flips / s
