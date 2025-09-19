@@ -1,5 +1,4 @@
-# config.py
-
+1T
 """
 REFINED: Configuration reflecting the advanced, weighted reward component system.
 
@@ -67,11 +66,11 @@ class AssetType(str, Enum):
     COMMODITY = "commodity"
 
 class TimeFrameType(str, Enum):
-    SECOND_20 = "20S"
-    MINUTE_1 = "1T"
-    MINUTE_3 = "3T"
-    MINUTE_5 = "5T"
-    MINUTE_15 = "15T"
+    SECOND_20 = "20s"
+    MINUTE_1 = "1min"
+    MINUTE_3 = "3min"
+    MINUTE_5 = "5min"
+    MINUTE_15 = "15min"
     HOUR_1 = "1H"
     HOUR_4 = "4H"
     DAY_1 = "1D"
