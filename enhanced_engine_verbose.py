@@ -574,5 +574,3 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
         except Exception as e:
             logger.error(f"Error calculating performance metrics: {e}")
             return {}
-```
-        
