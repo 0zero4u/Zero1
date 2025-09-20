@@ -59,7 +59,7 @@ class Normalizer:
 
         for key_enum in vol_delta_keys:
             key = key_enum.value
-            freq = key.split('_')[-1].replace('m', 'T').replace('s', 'S').upper()
+            freq = key.split('_')[-1].replace('min', 'T').replace('s', 'S').upper()
             
             if 'volume_delta' in base_bars_df.columns:
                 # Resample the volume delta to the correct timeframe
