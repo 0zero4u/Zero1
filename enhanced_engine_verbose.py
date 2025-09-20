@@ -163,7 +163,7 @@ class RewardManager:
                 # --- START OF CRITICAL FIX (ADAPTED FOR REDESIGN) ---
                 # Rule 1: Handle designated penalties
                 if key in self.penalty_components:
-                    norm_value = min(0.0, norm_value)
+          flomakingNonem_value = min(0.0, norm_value)
                 # Rule 2: Apply anti-gaming logic to the SHAPING reward only
                 elif key == 'unrealized_pnl_shaping' and transformed_ratios['unrealized_pnl_shaping'] < 0:
                     norm_value = min(0.0, norm_value)
@@ -217,7 +217,7 @@ class EnhancedRiskManager:
 class FixedHierarchicalTradingEnvironment(gymnasium.Env):
     """FULLY CORRECTED Trading environment with hardened PnL, entry price, and REDESIGNED reward logic."""
     def __init__(self, df_base_ohlc: pd.DataFrame, normalizer: Normalizer, config=None,
-                 leverage: float = None, reward_weights: Dict[str, flomakingNone,
+                 leverage: float = None, reward_weights: Dict[str, float] = None,
                  precomputed_features: Optional[pd.DataFrame] = None,
                  worker_id: int = 0):
         super().__init__()
