@@ -220,7 +220,7 @@ class StrategyConfig(BaseModel):
             ),
             # FIXED: Restored dist_vwap_3m to declarative pattern
             StatefulCalculatorConfig(
-        datetimee='vwap_dist_3m',
+        name='vwap_dist_3m',
                 class_name='StatefulVWAPDistance',
                 params={'period': 9}, # 9 bars of 20s = 3 minutes
                 timeframe='20s', # Calculate on base timeframe but use for 3m VWAP
