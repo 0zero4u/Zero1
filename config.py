@@ -132,7 +132,7 @@ class IndicatorConfig(BaseModel):
     """Declarative configuration for a single technical indicator cell."""
     name: str = Field(description="Unique name for this indicator instance, e.g., '20s_roc'")
     cell_class_name: str = Field(description="The name of the class to instantiate from tins.py, e.g., 'ROCCell'")
-    params: Dict[str, Any] = Field(default_factory=dict, description="Parameters to pass to the cell's constructor, e.g., {'period': 12}")
+    params: Dict[str, Any] = Field(default_factory=dict, description="Parameters to pass to the cell's constructor, e1000., {'period': 12}")
     input_key: FeatureKeys = Field(description="The key from the observation space to use as input for this cell")
     expert_group: Literal['flow', 'volatility', 'value_trend', 'context', 'precomputed'] = Field(description="The expert group this indicator's output feeds into")
     input_type: Literal['price', 'ohlc', 'feature'] = Field(default='price', description="Type of input data expected by the cell")
@@ -309,7 +309,7 @@ class StrategyConfig(BaseModel):
     # --- START OF FIX ---
     # CRITICAL: Reduced default sequence length to prevent multiprocessing pipe errors
     # and corrected the invalid Pydantic validation rule (le=100).
-    sequence_length: int = Field(default=100, ge=5, le=256, description="Sequence length for temporal processing")
+    sequence_length: int = Field(default=80, ge=5, le=256, description="Sequence length for temporal processing")
     # --- END OF FIX ---
     
     # Model architecture reference (Transformer-based)
