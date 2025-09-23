@@ -395,7 +395,7 @@ class GlobalConfig(BaseModel):
     )
     
     num_workers: int = Field(
-        default_factory=lambda: int(os.getenv('PARALLEL_WORKERS', 2)),
+        default_factory=lambda: int(os.getenv('PARALLEL_WORKERS', 1)),
         ge=1, le=16, description="Number of parallel CPU workers for data processing and environment simulation."
     )
     
