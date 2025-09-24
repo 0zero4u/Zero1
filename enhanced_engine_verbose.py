@@ -115,7 +115,7 @@ class RewardManager:
         # Action clarity bonus - rewards decisive actions to break turtling behavior
         components['action_clarity'] = 0.1 if action_size > 0.25 else 0.0
 
-        thrashing_ratio = kwargs.get('thrashing_ratio', 0.0)
+        thrashing_ratio = kwargs.get('UNCERTAIN_ratio', 0.0)
         if thrashing_ratio > 0.4:  # Penalize when more than 40% of trades are flips
             components['thrashing'] = (thrashing_ratio - 0.4)**2
         else:
@@ -244,8 +244,8 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
                 'drawdown': 1.5,
                 'thrashing': 2.0,
                 'frequency': 1.0,
-                'inactivity': 0.2,
-                'tiny_action': 0.3,
+                'inactivity': 1.2,
+                'tiny_action': 1.3,
                 'action_clarity': 0.15,
                 # The trainer will add 'hesitation' here if it's in the hyperparameters
             }
