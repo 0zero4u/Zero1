@@ -346,7 +346,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 # Redesigned default reward weights
                 'reward_weight_realized_pnl': 3.0,
                 'reward_weight_unrealized_pnl_shaping': 0.1,
-                'reward_weight_trade_cost': 0.75,
+                'reward_weight_trade_cost': 0.35,
                 'reward_weight_drawdown': 1.5,
                 'reward_weight_thrashing': 2.0,
                 'reward_weight_frequency': 1.0,
