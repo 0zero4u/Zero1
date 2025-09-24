@@ -249,6 +249,7 @@ class EnhancedFixedTrainer:
                 'ent_coef': trial.suggest_float('ent_coef', 0.005, 0.04, log=True),
                 'leverage': trial.suggest_float('leverage', 5.0, 15.0),
                 # New reward weights for optimization
+                'reward_weight_hesitation': trial.suggest_categorical('reward_weight_hesitation', [1.5]),
                 'reward_weight_realized_pnl': trial.suggest_float('reward_weight_realized_pnl', 2.0, 5.0),
                 'reward_weight_unrealized_pnl_shaping': trial.suggest_float('reward_weight_unrealized_pnl_shaping', 0.01, 0.2),
                 'reward_weight_trade_cost': trial.suggest_float('reward_weight_trade_cost', 0.5, 1.5),
