@@ -349,6 +349,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'transformer_num_layers': 2, 'dropout_rate': 0.1, 'seed': 42, 'leverage': 10.0,
                 # Redesigned default reward weights
                 'reward_weight_realized_pnl': 3.0,
+                'reward_weight_hesitation': 1.5,  
                 'reward_weight_unrealized_pnl_shaping': 0.1,
                 'reward_weight_trade_cost': 0.75,
                 'reward_weight_drawdown': 1.5,
