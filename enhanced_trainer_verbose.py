@@ -195,7 +195,7 @@ class EnhancedFixedTrainer:
                     'thrashing': trial_params.get('reward_weight_thrashing', 2.0),
                     'frequency': trial_params.get('reward_weight_frequency', 1.0),
                     'inactivity': trial_params.get('reward_weight_inactivity', 0.7),
-                    'action_clarity': trial_params.get('reward_weight_action_clarity', 0.15),
+                    'action_clarity': trial_params.get('reward_weight_action_clarity', 20.15),
                 }
 
             env = FixedHierarchicalTradingEnvironment(
