@@ -211,9 +211,15 @@ class EnhancedRiskManager:
         leverage_adjustment = min(1.0, 10.0 / self.leverage)
         return base_limit * vol_adjustment * leverage_adjustment
 
+    
+
     def get_volatility_percentile(self, current_volatility: float) -> float:
         if len(self.volatility_buffer) < 20: return 0.5
-        return stats.percentileofscore(list(self.volatility_buffer), current_volatility) sel
+        # --- START OF FIX ---
+        # Removed the stray 'sel' at the end of this line, which was a syntax error.
+        return stats.percentileofscore(list(self.volatility_buffer), current_volatility) / 100.0
+        # --- END OF FIX ---
+
 class FixedHierarchicalTradingEnvironment(gymnasium.Env):
     """FULLY CORRECTED Trading environment with hardened PnL, entry price, and REDESIGNED reward logic."""
     def __init__(self, df_base_ohlc: pd.DataFrame, normalizer: Normalizer, config=None,
@@ -221,6 +227,7 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
                  precomputed_features: Optional[pd.DataFrame] = None,
                  worker_id: int = 0):
         super().__init__()
+        
         try:
             self.worker_id, self.verbose = worker_id, worker_id == 0
             self.COLOR_GREEN, self.COLOR_RED, self.COLOR_YELLOW, self.COLOR_CYAN, self.COLOR_RESET, self.COLOR_BOLD = '\033[92m', '\033[91m', '\033[93m', '\033[96m', '\033[0m', '\033[1m'
