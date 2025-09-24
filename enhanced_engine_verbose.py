@@ -223,7 +223,7 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
                 'thrashing': 2.0,
                 'frequency': 1.0,
                 'inactivity': 1.2,
-                'action_clarity': 0.15,
+                'action_clarity': 20.15,
             }
             final_reward_weights = reward_weights if reward_weights is not None else default_reward_weights
             self.reward_manager = RewardManager(weights=final_reward_weights)
