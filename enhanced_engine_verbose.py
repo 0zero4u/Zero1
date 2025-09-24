@@ -70,7 +70,7 @@ class RewardManager:
         self.weights = weights
         self.normalizers = {key: RobustComponentNormalizer() for key in weights.keys()}
         self.penalty_components = {'trade_cost', 'drawdown', 'frequency', 'tiny_action', 'inactivity', 'thrashing', 'hesitation'}
-        self.REWARD_SCALE_FACTOR = 10000.0
+        self.REWARD_SCALE_FACTOR = 100.0
 
     def _calculate_raw_components(self, **kwargs) -> Dict[str, float]:
         """Calculates raw, physical values from the environment step."""
