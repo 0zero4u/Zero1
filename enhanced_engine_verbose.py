@@ -367,4 +367,46 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
             self.action_frequency_buffer.append(1 if is_executed_trade else 0)
             self.consecutive_inactive_steps = 0 if is_executed_trade else self.consecutive_inactive_steps + 1
 
-            reward, reward_info = self.reward_manager.calculate
+            reward, reward_info = self.reward_manager.calculate_final_reward(
+                initial_portfolio_value=initial_portfolio_value,
+                next_portfolio_value=next_portfolio_value,
+                total_cost=total_cost,
+                trade_quantity=trade_quantity,
+                current_price=current_price,
+                drawdown=current_drawdown,
+                action=action,
+                action_frequency_buffer=self.action_frequency_buffer,
+                consecutive_inactive_steps=self.consecutive_inactive_steps,
+                realized_pnl=realized_pnl,
+                thrashing_ratio=thrashing_ratio
+            )
+
+            raw_components_for_print = reward_info.get('weighted_rewards', {})
+            if self.verbose:
+                if is_executed_trade:
+                    self._print_trade_info("TRADE", current_price, next_portfolio_value, next_unrealized_pnl, reward, raw_components_for_print)
+                elif (self.consecutive_inactive_steps == 1 or self.consecutive_inactive_steps % 50 == 0):
+                    self._print_hold_info(self.current_step, next_price, next_portfolio_value, next_unrealized_pnl, action)
+
+            self.observation_history.append(self._get_single_step_observation(self.current_step))
+            terminated = next_portfolio_value <= self.initial_balance * (1.0 - self.strat_cfg.max_drawdown_threshold)
+            truncated = self.current_step >= self.max_step
+            
+            info = {
+                'portfolio_value': next_portfolio_value,
+                **reward_info,
+                'action_magnitude': action_magnitude,
+                'consecutive_inactive_steps': self.consecutive_inactive_steps,
+                'thrashing_ratio': thrashing_ratio,
+                'total_attempted_trades': self.total_attempted_trades,
+                'total_executed_trades': self.total_executed_trades,
+                'total_insignificant_trades': self.total_insignificant_trades,
+                'drawdown': current_drawdown,
+                'peak_value': self.episode_peak_value,
+                'raw_reward': reward,
+                'intrinsic_reward': reward_info.get('transformed_ratios', {}).get('realized_pnl', 0.0)
+            }
+            return self._get_observation_sequence(), reward, terminated, truncated, info
+        except Exception as e:
+            logger.exception(f"FATAL ERROR in Worker {self.worker_id} on step {self.current_step}. This worker will crash.")
+            raise e
