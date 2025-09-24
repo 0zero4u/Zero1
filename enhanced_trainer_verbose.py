@@ -236,9 +236,8 @@ class EnhancedFixedTrainer:
         if not OPTUNA_AVAILABLE: raise RuntimeError("Optuna not available.")
         vec_env, eval_env = None, None
         try:
-            # --- START OF HESITATION PENALTY FIX (1/2) ---
-            # Define trial parameters, including the FIXED hesitation penalty weight.
-            trial_params = {
+            
+         ENDtrial_params = {
                 'learning_rate': trial.suggest_float('learning_rate', 5e-5, 5e-4, log=True),
                 'n_steps': trial.suggest_categorical('n_steps', [1024, 2048, 4096]),
                 'batch_size': trial.suggest_categorical('batch_size', [64, 128]),
@@ -255,7 +254,7 @@ class EnhancedFixedTrainer:
                 'reward_weight_inactivity': trial.suggest_float('reward_weight_inactivity', 0.5, 1.5),
                 'reward_weight_action_clarity': trial.suggest_float('reward_weight_action_clarity', 0.05, 0.4),
             }
-            # --- END OF HESITATION PENALTY FIX (1/2) ---
+            # ---   ---
             
             if trial_params['batch_size'] >= trial_params['n_steps']:
                 raise optuna.exceptions.TrialPruned("Batch size must be smaller than n_steps.")
@@ -338,8 +337,7 @@ def train_model_fixed(optimization_trials: int = 20,
             best_params = study.best_trial.params if study else {}
         else:
             logger.info("Skipping optimization, using high-quality default parameters.")
-            # --- START OF HESITATION PENALTY FIX (2/2) ---
-            # Add the hesitation penalty to the default parameters for runs that skip optimization.
+            
             best_params = {
                 'learning_rate': 3e-4, 'n_steps': 2048, 'batch_size': 128, 'n_epochs': 10,
                 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.01,
@@ -355,7 +353,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_weight_inactivity': 0.8,
                 'reward_weight_action_clarity': 0.15,
             }
-            # --- END OF HESITATION PENALTY FIX (2/2) ---
+            # --- -----
 
         trainer.train_best_model(best_params, final_training_steps)
         logger.info(f"🎉 V3 (Redesigned Reward) training completed! Model saved to: {trainer.last_saved_model_path}")
