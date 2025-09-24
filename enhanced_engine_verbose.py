@@ -375,7 +375,6 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
             if is_executed_trade:
                 self.total_executed_trades += 1
                 current_position_sign = np.sign(self.asset_held)
-
 if len(self.position_history_buffer) > 0:
                     last_position_sign = self.position_history_buffer[-1]
                     if current_position_sign != last_position_sign and last_position_sign != 0:
