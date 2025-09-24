@@ -194,8 +194,8 @@ class EnhancedFixedTrainer:
                     'drawdown': trial_params.get('reward_weight_drawdown', 1.5),
                     'thrashing': trial_params.get('reward_weight_thrashing', 2.0),
                     'frequency': trial_params.get('reward_weight_frequency', 1.0),
-                    'inactivity': trial_params.get('reward_weight_inactivity', 0.2),
-                    'tiny_action': trial_params.get('reward_weight_tiny_action', 0.3),
+                    'inactivity': trial_params.get('reward_weight_inactivity', 0.7),
+                    'tiny_action': trial_params.get('reward_weight_tiny_action', 0.9),
                     'action_clarity': trial_params.get('reward_weight_action_clarity', 0.15),
                     # Pass the hesitation weight if it exists in the trial parameters
                     'hesitation': trial_params.get('reward_weight_hesitation', 0.0),
