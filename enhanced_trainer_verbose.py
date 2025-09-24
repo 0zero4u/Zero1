@@ -350,7 +350,7 @@ def train_model_fixed(optimization_trials: int = 20,
                 'reward_weight_drawdown': 1.5,
                 'reward_weight_thrashing': 2.0,
                 'reward_weight_frequency': 1.0,
-                'reward_weight_inactivity': 0.8,
+                'reward_weight_inactivity': 1.4,
                 'reward_weight_action_clarity': 0.15,
             }
             # ---  ---
