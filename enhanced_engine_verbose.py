@@ -425,7 +425,7 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
             
             info = {
                 'portfolio_value': next_portfolio_value,
-            reward_info,
+                **reward_info,
                 'action_magnitude': action_magnitude,
                 'consecutive_inactive_steps': self.consecutive_inactive_steps,
                 'thrashing_ratio': thrashing_ratio,
