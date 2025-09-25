@@ -126,7 +126,7 @@ class RewardManager:
 
         # Strengthened the inactivity penalty
         inactivity_penalty = 0.0
-        if raw_components['inactivity_steps'] > 5:
+        if raw_components['inactivity_steps'] > 30:
             inactivity_penalty = (raw_components['inactivity_steps'] - 5) / 50.0
         ratios['inactivity'] = -inactivity_penalty
         
