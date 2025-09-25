@@ -391,4 +391,19 @@ def train_model_fixed(optimization_trials: int = 20,
             # --- END OF MODIFICATION ---
 
         trainer.train_best_model(best_params, final_training_steps)
-        logger.info(f"🎉 SAC training completed! 
+        logger.info(f"🎉 SAC training completed! Model saved to: {trainer.last_saved_model_path}")
+        return trainer.last_saved_model_path
+    except Exception as e:
+        logger.exception("FATAL UNHANDLED ERROR in the program will now exit.")
+        raise e
+
+if __name__ == "__main__":
+    if mp.get_start_method(allow_none=True) is None:
+        mp.set_start_method("spawn")
+
+    train_model_fixed(
+        optimization_trials=10,
+        final_training_steps=100000,
+        use_wandb=False,
+        enable_live_monitoring=True
+)
