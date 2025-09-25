@@ -386,4 +386,12 @@ def train_model_fixed(optimization_trials: int = 20,
         raise e
 
 if __name__ == "__main__":
-    if mp.get_start_method(allow_n
+    if mp.get_start_method(allow_none=True) is None:
+        mp.set_start_method("spawn")
+
+    train_model_fixed(
+        optimization_trials=10,
+        final_training_steps=100000,
+        use_wandb=False,
+        enable_live_monitoring=True
+)
