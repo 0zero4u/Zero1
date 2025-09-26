@@ -409,4 +409,32 @@ def train_model_fixed(optimization_trials: int = 20,
                 'gradient_steps': 1,
                 'ent_coef': 'auto',
                 'transformer_d_model': 64, 'transformer_n_heads': 4,
+                'transformer_num_layers': 2, 'dropout_rate': 0.1, 'seed': 42, 'leverage': 10.0,
+                'reward_weight_realized_pnl': 3.0,
+                'reward_weight_unrealized_pnl_shaping': 0.1,
+                'reward_weight_trade_cost': 0.35,
+                'reward_weight_drawdown': 0.0,
+                'reward_weight_thrashing': 0.0,
+                'reward_weight_frequency': 0.1,
+                'reward_weight_inactivity': 1.0,
+                'reward_weight_action_clarity': 20.15,
+            }
+
+        trainer.train_best_model(best_params, final_training_steps)
+        logger.info(f"🎉 SAC training completed! Model saved to: {trainer.last_saved_model_path}")
+        return trainer.last_saved_model_path
+    except Exception as e:
+        logger.exception("FATAL UNHANDLED ERROR in the program will now exit.")
+        raise e
+
+if __name__ == "__main__":
+    if mp.get_start_method(allow_none=True) is None:
+        mp.set_start_method("spawn")
+
+    train_model_fixed(
+        optimization_trials=10,
+        final_training_steps=100000,
+        use_wandb=False,
+        enable_live_monitoring=True
+    )
 
