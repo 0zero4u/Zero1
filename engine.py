@@ -313,4 +313,85 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
         try:
             raw_obs = {}
             current_price = self.timeframes_np[self.cfg.base_bar_timeframe.value]['close'][step_index]
-            
+            for key_enum, lookback in self.strat_cfg.lookback_periods.items():
+                key = key_enum.value
+                if key in [FeatureKeys.CONTEXT.value, FeatureKeys.PORTFOLIO_STATE.value, FeatureKeys.PRECOMPUTED_FEATURES.value]: continue
+                freq = key.split('_')[-1]
+                if key.startswith('ohlc'):
+                    cols = ['open','high','low','close','volume'] if 'v' in key else ['open','high','low','close']
+                    window_data = np.stack([self.timeframes_np[freq][c][max(0, step_index - lookback + 1) : step_index + 1] for c in cols], axis=1)
+                else:
+                    window_data = self.timeframes_np[freq]['close'][max(0, step_index - lookback + 1) : step_index + 1]
+                if len(window_data) < lookback: window_data = np.pad(window_data, [(lookback - len(window_data), 0)] + [(0,0)]*(window_data.ndim-1), 'edge')
+                raw_obs[key] = window_data.astype(np.float32)
+            raw_obs[FeatureKeys.CONTEXT.value] = self._get_current_context_features(step_index)
+            raw_obs[FeatureKeys.PRECOMPUTED_FEATURES.value] = np.array([self.all_features_np[k][step_index] for k in self.strat_cfg.precomputed_feature_keys], dtype=np.float32)
+            unrealized_pnl = sum(qty * (current_price - price) for qty, price, step in self.open_positions)
+            portfolio_value = self.balance + unrealized_pnl
+            position_value = self.total_asset_held * current_price
+            raw_obs[FeatureKeys.PORTFOLIO_STATE.value] = np.array([
+                np.clip(position_value / (portfolio_value + 1e-9), -self.leverage, self.leverage),
+                np.tanh(unrealized_pnl / (portfolio_value + 1e-9)),
+                self.risk_manager.get_volatility_percentile(self.volatility_estimate),
+                (self.episode_peak_value - portfolio_value) / max(self.episode_peak_value, 1e-9)], dtype=np.float32)
+            return self.normalizer.transform(raw_obs)
+        except Exception as e:
+            logger.exception(f"FATAL ERROR in Worker {self.worker_id} getting observation at step {step_index}. This worker will crash.")
+            raise e
+
+    def _get_observation_sequence(self):
+        try:
+            return {key: np.stack([obs[key] for obs in self.observation_history]) for key in self.observation_space.spaces.keys()}
+        except Exception as e:
+            logger.exception(f"FATAL ERROR in Worker {self.worker_id} stacking observation sequence. This worker will crash.")
+            raise e
+
+    def _log_closed_trade(self, quantity: float, entry_price: float, entry_step: int, exit_price: float, profit: float):
+        if self.worker_id != 0: return
+        trade_data = {'entry_step': entry_step, 'exit_step': self.current_step, 'quantity': round(quantity, 6),
+                      'entry_price': round(entry_price, 2), 'exit_price': round(exit_price, 2), 'profit': round(profit, 2)}
+        try:
+            with open("live_closed_trades.jsonl", "a") as f:
+                json.dump(trade_data, f)
+                f.write('\n')
+        except Exception: pass
+
+    def _log_live_state(self, action_signal, action_size, reward, reward_info, next_portfolio_value):
+        if self.worker_id != 0: return
+        state_data = {
+            'timestamp': datetime.now().isoformat(), 'step': self.current_step,
+            'price': self.timeframes_np[self.cfg.base_bar_timeframe.value]['close'][self.current_step],
+            'balance': self.balance, 'portfolio_value': next_portfolio_value, 'peak_value': self.episode_peak_value,
+            'drawdown': reward_info.get('raw_reward_components', {}).get('drawdown', 0.0),
+            'action_signal': float(action_signal), 'action_size': float(action_size), 'final_reward': reward,
+            'reward_components': {k: round(v, 5) for k, v in reward_info.get('weighted_rewards', {}).items()},
+            'open_positions': [(round(q, 6), round(p, 2)) for q, p, s in self.open_positions],
+            'total_asset_held': self.total_asset_held, 'avg_entry_price': self.average_entry_price,
+        }
+        try:
+            with open("live_env_state.json", "w") as f: json.dump(state_data, f)
+        except Exception: pass
+
+    def get_performance_metrics(self) -> Dict[str, Any]:
+        try:
+            if len(self.portfolio_history) < 2: return {}
+            portfolio_values = np.array(self.portfolio_history)
+            initial_value = portfolio_values[0]
+            final_value = portfolio_values[-1]
+            base_bar_seconds = self.cfg.get_timeframe_seconds(self.cfg.base_bar_timeframe)
+            bars_per_year = (365 * 24 * 3600) / base_bar_seconds
+            returns = np.diff(portfolio_values) / portfolio_values[:-1]
+            volatility = np.std(returns) * np.sqrt(bars_per_year) if len(returns) > 1 else 0.0
+            total_return = (final_value - initial_value) / initial_value
+            num_periods = len(returns)
+            annualized_return = ((1 + total_return) ** (bars_per_year / num_periods) - 1) if num_periods > 0 else 0.0
+            risk_free_rate = 0.02
+            sharpe_ratio = (annualized_return - risk_free_rate) / volatility if volatility > 0 else 0.0
+            cumulative_max = np.maximum.accumulate(portfolio_values)
+            drawdowns = (cumulative_max - portfolio_values) / cumulative_max
+            max_drawdown = np.max(drawdowns) if len(drawdowns) > 0 else 0.0
+            return {'total_return': total_return, 'annualized_return': annualized_return, 'volatility_annualized': volatility,
+                    'max_drawdown': max_drawdown, 'sharpe_ratio': sharpe_ratio, 'final_portfolio_value': final_value}
+        except Exception as e:
+            logger.error(f"Error calculating performance metrics: {e}")
+            return {}
