@@ -326,3 +326,17 @@ class FixedHierarchicalTradingEnvironment(gymnasium.Env):
             base_bar_seconds = self.cfg.get_timeframe_seconds(self.cfg.base_bar_timeframe)
             bars_per_year = (365 * 24 * 3600) / base_bar_seconds
             returns = np.diff(portfolio_values) / portfolio_values[:-1]
+            volatility = np.std(returns) * np.sqrt(bars_per_year) if len(returns) > 1 else 0.0
+            total_return = (final_value - initial_value) / initial_value
+            num_periods = len(returns)
+            annualized_return = ((1 + total_return) ** (bars_per_year / num_periods) - 1) if num_periods > 0 else 0.0
+            risk_free_rate = 0.02
+            sharpe_ratio = (annualized_return - risk_free_rate) / volatility if volatility > 0 else 0.0
+            cumulative_max = np.maximum.accumulate(portfolio_values)
+            drawdowns = (cumulative_max - portfolio_values) / cumulative_max
+            max_drawdown = np.max(drawdowns) if len(drawdowns) > 0 else 0.0
+            return {'total_return': total_return, 'annualized_return': annualized_return, 'volatility_annualized': volatility,
+                    'max_drawdown': max_drawdown, 'sharpe_ratio': sharpe_ratio, 'final_portfolio_value': final_value}
+        except Exception as e:
+            logger.error(f"Error calculating performance metrics: {e}")
+            return {}
