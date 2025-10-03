@@ -413,5 +413,4 @@ class GlobalConfig(BaseModel):
         }
     )
     
-    # Logging and monitoring loaded from .env
-    log_level:
+    
