@@ -400,4 +400,130 @@ class EnhancedFixedTrainer:
                    gradient_steps=trial_params.get('gradient_steps', 1),
                    top_quantiles_to_drop_per_net=trial_params.get('top_quantiles_to_drop', 2),
                    ent_coef='auto', target_update_interval=1, use_sde=False,
-                   policy_kwargs=policy_kwa
+                   policy_kwargs=policy_kwaargs, tensorboard_log=SETTINGS.get_tensorboard_path(),
+                   device=SETTINGS.device, seed=trial_params.get('seed', 42), verbose=0)
+
+    def objective(self, trial) -> float:
+        if not OPTUNA_AVAILABLE: raise RuntimeError("Optuna not available.")
+        vec_env, eval_env = None, None
+        try:
+            trial_params = {
+                'learning_rate': trial.suggest_float('learning_rate', 1e-4, 1e-3, log=True),
+                'lambda_lr': trial.suggest_float('lambda_lr', 1e-5, 1e-3, log=True),
+                'buffer_size': trial.suggest_categorical('buffer_size', [100_000, 200_000]),
+                'learning_starts': trial.suggest_categorical('learning_starts', [10000, 20000]),
+                'batch_size': trial.suggest_categorical('batch_size', [256, 512]),
+                'gamma': trial.suggest_float('gamma', 0.99, 0.999),
+                'tau': trial.suggest_float('tau', 0.005, 0.02),
+                'top_quantiles_to_drop': trial.suggest_int('top_quantiles_to_drop', 1, 5),
+                'leverage': trial.suggest_float('leverage', 5.0, 15.0),
+                'target_drawdown': trial.suggest_float('target_drawdown', 0.05, 0.20),
+                'target_trade_cost_pct': trial.suggest_float('target_trade_cost_pct', 0.0001, 0.001, log=True),
+                'target_thrashing_rate': trial.suggest_float('target_thrashing_rate', 0.05, 0.25),
+                'train_freq': (1, 'step'),
+                'gradient_steps': 1,
+            }
+            
+            temp_cm = ConstraintManager(targets={k:0 for k in self.constraint_keys}, device=torch.device('cpu'))
+            
+            vec_env = SubprocVecEnv([self._make_env(i, trial.number, trial_params=trial_params, initial_lambdas=temp_cm.lambdas) for i in range(self.num_cpu)])
+            
+            model = self.create_lagrangian_model(trial_params, vec_env)
+            
+            experiment_name = f"trial_{trial.number}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            log_path = os.path.join(SETTINGS.get_logs_path(), experiment_name)
+            model.set_logger(configure(log_path, ["stdout", "csv", "tensorboard"]))
+            
+            eval_env_raw = self._make_env(rank=0, seed=123, trial_params=trial_params, initial_lambdas=model.constraint_manager.lambdas)()
+            eval_env_limited = TimeLimit(eval_env_raw, max_episode_steps=5000)
+            eval_env = DummyVecEnv([lambda: eval_env_limited])
+            
+            learning_starts_val = trial_params.get('learning_starts', 10_000)
+            eval_freq = max(learning_starts_val, 10_000) // self.num_cpu
+            eval_callback = PortfolioValueEvalCallback(eval_env, best_model_save_path=str(Path(log_path) / "best_model"),
+                                                      log_path=log_path, eval_freq=eval_freq, n_eval_episodes=5,
+                                                      deterministic=True, warn=False)
+            callbacks = [eval_callback, HParamCallback(trial, ['eval/mean_portfolio_value']),
+                         RolloutInfoCallback(log_freq=eval_freq), EpisodeStatsCallback(verbose=0)]
+            if self.use_wandb:
+                callbacks.append(WandbCallback("crypto_trading_LagrangianTQC", experiment_name, trial_params))
+            
+            model.learn(total_timesteps=50_000, callback=callbacks, progress_bar=False)
+            
+            return eval_callback.best_mean_portfolio_value - 1000000.0
+        except optuna.exceptions.TrialPruned as e: raise e
+        except Exception as e:
+            logger.error(f"Trial failed with error: {e}", exc_info=True)
+            return -1e9
+        finally:
+            if vec_env: vec_env.close()
+            if eval_env: eval_env.close()
+
+    def optimize(self, n_trials: int = 50, timeout: Optional[int] = None):
+        if not OPTUNA_AVAILABLE: return None
+        db_path = SETTINGS.get_optuna_db_path()
+        study = optuna.create_study(study_name=f"tqc-lagrangian-optimization-{SETTINGS.environment.value}", storage=f"sqlite:///{db_path}",
+                                    direction='maximize', sampler=optuna.samplers.TPESampler(), load_if_exists=True)
+        study.optimize(self.objective, n_trials=n_trials, timeout=timeout, show_progress_bar=True)
+        return study
+
+    def train_best_model(self, best_params: Dict, final_training_steps: int) -> LagrangianTQC:
+        logger.info("🎯 Training final model with best parameters using Lagrangian TQC...")
+        
+        temp_vec_env = DummyVecEnv([self._make_env(0, seed=42, trial_params=best_params)])
+        model = self.create_lagrangian_model(best_params, temp_vec_env)
+        initial_lambdas = model.constraint_manager.lambdas
+        temp_vec_env.close()
+        
+        vec_env = SubprocVecEnv([self._make_env(i, seed=42, trial_params=best_params, initial_lambdas=initial_lambdas) for i in range(self.num_cpu)])
+        model.set_env(vec_env)
+        
+        model.set_logger(configure(SETTINGS.get_logs_path(), ["stdout", "csv", "tensorboard"]))
+        callbacks = [RolloutInfoCallback(log_freq=max(5000 // self.num_cpu, 500)),
+                     EpisodeStatsCallback(verbose=1 if self.enable_live_monitoring else 0)]
+        if self.use_wandb:
+            callbacks.append(WandbCallback("crypto_trading_final_LagrangianTQC", f"final_train_{datetime.now().strftime('%Y%m%d_%H%M%S')}", best_params))
+        
+        model.learn(total_timesteps=final_training_steps, callback=callbacks, progress_bar=True)
+        
+        model_path_str = SETTINGS.get_model_path()
+        model.save(model_path_str)
+        logger.info(f"✅ Final Lagrangian TQC model saved to: {model_path_str}")
+        self.last_saved_model_path = model_path_str
+        vec_env.close()
+        return model
+
+def train_model_fixed(optimization_trials: int = 20,
+                     final_training_steps: int = 500000,
+                     use_wandb: bool = False,
+                     enable_live_monitoring: bool = True) -> str:
+    try:
+        trainer = EnhancedFixedTrainer(use_wandb=use_wandb, enable_live_monitoring=enable_live_monitoring)
+        if optimization_trials > 0 and OPTUNA_AVAILABLE:
+            study = trainer.optimize(n_trials=optimization_trials)
+            best_params = study.best_trial.params if study else {}
+        else:
+            logger.info("Skipping optimization, using high-quality default TQC + Lagrangian parameters.")
+            best_params = {
+                'learning_rate': 3e-4, 'lambda_lr': 5e-5, 'buffer_size': 200_000, 
+                'learning_starts': 10_000, 'batch_size': 256, 'tau': 0.005, 
+                'gamma': 0.99, 'top_quantiles_to_drop': 2, 'train_freq': (1, 'step'), 'gradient_steps': 1,
+                'transformer_d_model': 64, 'transformer_n_heads': 4,
+                'transformer_num_layers': 2, 'dropout_rate': 0.1, 'seed': 42, 
+                'leverage': 10.0,
+                'target_drawdown': 0.15,
+                'target_trade_cost_pct': 0.0005,
+                'target_thrashing_rate': 0.15,
+            }
+        trainer.train_best_model(best_params, final_training_steps)
+        logger.info(f"🎉 Lagrangian TQC training completed! Model saved to: {trainer.last_saved_model_path}")
+        return trainer.last_saved_model_path
+    except Exception as e:
+        logger.exception("FATAL UNHANDLED ERROR in the program will now exit.")
+        raise e
+
+if __name__ == "__main__":
+    if mp.get_start_method(allow_none=True) is None:
+        mp.set_start_method("spawn")
+    train_model_fixed(optimization_trials=10, final_training_steps=100000,
+                      use_wandb=False, enable_live_monitoring=True)
