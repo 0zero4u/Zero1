@@ -1,7 +1,7 @@
-# Machine Learning & RL
 torch==2.8.0
 torchvision==0.23.0
 stable-baselines3>=2.6.0,<3.0.0
+sb3-contrib>=2.6.0,<3.0.0
 gymnasium==1.2.0
 
 # Core Data Science – pinned for NumPy 2.0 compatibility
@@ -35,8 +35,3 @@ tensorboard>=2.18.0,<3.0
 # Big data / performance
 dask[dataframe]>=2024.5.1    # NumPy 2 fixes landed in 2024.5.x
 numba>=0.60.0,<0.62.0        # 0.60 adds binary support for NumPy 2
-
-# Dev / QA (optional)
-pytest>=7.4.0
-black>=23.9.1
-flake8>=6.0.0
